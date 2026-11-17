@@ -8,6 +8,7 @@ import { Library } from './ui/Library';
 import { ReaderScreen, type OpenDoc } from './ui/ReaderScreen';
 import { SAMPLE_TEXT, SAMPLE_TITLE } from './ui/sample';
 import { SettingsPanel } from './ui/SettingsPanel';
+import { UrlImport } from './ui/UrlImport';
 
 type View = { kind: 'library' } | { kind: 'import'; draft: ImportDraft } | { kind: 'reader'; doc: OpenDoc };
 
@@ -20,6 +21,7 @@ export function App() {
   const [entries, setEntries] = useState<LibraryEntry[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const service = surprisalService();
   const { model } = useSyncExternalStore(service.subscribe, service.getSnapshot);
@@ -164,6 +166,26 @@ export function App() {
       onRename={(id, title) => void updateDoc(id, { title }).then(refresh)}
       onPaste={() => setView({ kind: 'import', draft: { title: '', text: '', source: 'paste' } })}
       onFile={(f) => void importFile(f)}
+      onUrl={() => {
+        setMessage(null);
+        setUrlOpen(true);
+      }}
+      urlForm={
+        urlOpen ? (
+          <UrlImport
+            onClose={() => setUrlOpen(false)}
+            onPaste={() => {
+              setUrlOpen(false);
+              setView({ kind: 'import', draft: { title: '', text: '', source: 'paste' } });
+            }}
+            onArticle={(a) => {
+              setUrlOpen(false);
+              const notes = [a.byline, a.siteName].filter(Boolean).length ? [`From ${[a.siteName, a.byline].filter(Boolean).join(', ')}.`] : undefined;
+              setView({ kind: 'import', draft: { title: a.title, text: a.text, source: 'url', origin: a.url, notes } });
+            }}
+          />
+        ) : null
+      }
       onSample={() => void openSample()}
       onSettings={() => setSettingsOpen(true)}
       overlay={

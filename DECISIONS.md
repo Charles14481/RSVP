@@ -185,3 +185,46 @@ Each entry: what changed, and why.
   on WebGPU and 1.5 s on WASM, about 6 to 7 s after "Save and read" including model start-up.
   While scoring continues there are no long tasks on the main thread, the worst frame gap is
   one frame, and mean onset error stays near 1 ms.
+
+## Milestone 5
+
+- **One handler, two hosts.** `server/fetchProxy.ts` uses only the Fetch API (`Request`,
+  `Response`, `fetch`, `AbortSignal.timeout`), so the Vite dev/preview middleware
+  (`server/vitePlugin.ts`) and the Cloudflare Worker (`worker/fetch-proxy.ts`, `wrangler.toml`)
+  share it unchanged. `vite preview` serves the proxy too, so a production build can be tested
+  locally with `VITE_FETCH_PROXY_URL=/api/fetch`.
+
+- **What "reject private and loopback hosts" covers.** IPv4 private, loopback, link-local
+  (including cloud metadata 169.254.169.254), CGNAT, benchmark, multicast and reserved ranges;
+  IPv6 loopback, unspecified, unique-local, link-local, multicast, and IPv4-mapped/NAT64 forms
+  of private IPv4; names such as `localhost`, `*.local`, `*.internal` and single-label hosts.
+  Numeric host spellings (`2130706433`, `0x7f.0.0.1`) are normalized by the URL parser and
+  caught as IPv4. Every redirect target is re-checked (redirects are followed manually, at most
+  five). In Node the hostname's DNS answers are checked as well; a rebinding race between that
+  lookup and the fetch's own lookup remains, which is acceptable for a local dev server. Workers
+  cannot reach private networks at all.
+
+- **Extra restrictions beyond the plan:** ports other than 80, 443, 8080 and 8443 and URLs with
+  embedded credentials are refused, and only HTML, XHTML, XML and plain-text responses are
+  passed through (a PDF link gets a clear error).
+
+- **Allowed origins.** The Worker requires an `Origin` in `ALLOWED_ORIGINS`. The dev middleware
+  also accepts requests without an `Origin`, because browsers send none on same-origin GETs; it
+  binds to localhost by default.
+
+- **The proxy body is inert.** It is served as `text/plain; charset=x-user-defined` with
+  `nosniff` and a `sandbox` CSP, so opening a proxy URL directly can never render the fetched
+  page on the reader's origin. The upstream content type and final URL travel in
+  `X-Upstream-Content-Type` and `X-Final-Url`; the client decodes the bytes itself (header
+  charset, then BOM, then `<meta charset>`, then UTF-8).
+
+- **Paragraphs from an article without inserting HTML.** Readability's `textContent` flattens
+  paragraphs together, so the article HTML Readability returns is parsed again with DOMParser
+  into an inert document (never attached to the page, scripts never run) and read block by block
+  through `textContent`. A test asserts that the page's scripts do not run and the live DOM is
+  untouched.
+
+- **Title cleanup.** A trailing " | Site Name" is removed when Readability reports the site name.
+
+- **Windows note.** Git Bash rewrites `VITE_FETCH_PROXY_URL=/api/fetch` into a Windows path, so
+  `scripts/smoke-url.mjs` sets the variable itself and builds through Vite's API.

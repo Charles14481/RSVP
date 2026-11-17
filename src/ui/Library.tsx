@@ -15,6 +15,8 @@ interface Props {
   onSettings: () => void;
   /** Shown above the list (import errors). */
   message?: ReactNode;
+  /** The URL import form, when open. */
+  urlForm?: ReactNode;
   overlay?: ReactNode;
 }
 
@@ -63,6 +65,7 @@ export function Library(props: Props) {
         <span className="field-hint">Text files and PDFs. Everything stays on this device.</span>
       </div>
 
+      {props.urlForm}
       {props.message && <div className="banner">{props.message}</div>}
 
       {entries === null ? null : entries.length === 0 ? (

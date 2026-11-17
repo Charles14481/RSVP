@@ -1,0 +1,9 @@
+# Cloudflare Worker for URL import. Deploy: npx wrangler deploy
+# Then build the app with VITE_FETCH_PROXY_URL=https://<name>.<account>.workers.dev/api/fetch
+name = "surprisal-reader-fetch"
+main = "worker/fetch-proxy.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Origins allowed to call the proxy, comma-separated. Set this to where the reader is hosted.
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"

@@ -911,3 +911,34 @@ p {
     padding: 6px 8px;
   }
 }
+
+/* URL import */
+
+.url-import {
+  margin: -8px 0 20px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.url-import input {
+  flex: 1;
+  min-width: 220px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.url-import .field-hint,
+.url-error {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.url-error {
+  color: var(--text);
+}
