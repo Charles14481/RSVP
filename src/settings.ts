@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL_ID, type BackendPreference } from './surprisal/models';
 import { DEFAULT_TIMING, type TimingSettings } from './timing/timing';
 
 export type PacingMode = 'surprisal' | 'fixed';
@@ -12,6 +13,11 @@ export interface Settings {
   /** RSVP word size in px. */
   fontSize: number;
   theme: Theme;
+  modelId: string;
+  /** 'auto' tries WebGPU first; 'wasm' forces the CPU backend. */
+  backend: BackendPreference;
+  /** Context window in tokens; 0 = the backend's default. */
+  window: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,6 +26,9 @@ export const DEFAULT_SETTINGS: Settings = {
   resumeAtSentenceStart: true,
   fontSize: 44,
   theme: 'system',
+  modelId: DEFAULT_MODEL_ID,
+  backend: 'auto',
+  window: 0,
 };
 
 /** Merge stored settings over defaults so new fields get default values. */
@@ -30,6 +39,18 @@ export function mergeSettings(stored: unknown): Settings {
     ...DEFAULT_SETTINGS,
     ...s,
     timing: { ...DEFAULT_TIMING, ...(s.timing ?? {}) },
+  };
+}
+
+/** `?backend=wasm` and `?model=<id>` override settings for this page load (debugging, smoke tests). */
+export function applyUrlOverrides(s: Settings, search: string): Settings {
+  const q = new URLSearchParams(search);
+  const backend = q.get('backend');
+  const model = q.get('model');
+  return {
+    ...s,
+    ...(backend === 'wasm' || backend === 'auto' ? { backend } : {}),
+    ...(model ? { modelId: model } : {}),
   };
 }
 

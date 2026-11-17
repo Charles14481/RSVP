@@ -44,3 +44,75 @@ Each entry: what changed, and why.
 - **The scheduler resynchronizes after stalls.** If a word goes up more than 250 ms late (a
   throttled background tab, a long GC pause), the next deadline is measured from now instead of
   the missed deadline, so the reader does not see a burst of words flashed to catch up.
+
+## Milestone 2
+
+- **Model files (checked against the repos on 2026-11-17).** Decoder-only models in
+  Transformers.js 4.3 load `onnx/model{suffix}.onnx` unless `model_file_name` overrides it.
+  - WebGPU: `model_fp16.onnx` when the adapter has `shader-f16`, else `model.onnx` (fp32).
+  - WASM: `decoder_model_merged_quantized.onnx` (q8). It is 128 MB for GPT-2 and 85 MB for
+    DistilGPT-2, against 281 MB for GPT-2's `model_int8`/`model_uint8` and 236 MB for
+    DistilGPT-2's `model_quantized`. Transformers.js feeds the merged decoder an empty KV cache,
+    so a plain forward pass works.
+  The table lives in `src/surprisal/models.ts` rather than being discovered at runtime; the
+  sizes are needed for the progress bar before any bytes arrive anyway.
+
+- **Quantization error is larger than "slight", and acceptable.** Against PyTorch fp32 (slow
+  test), the 8-bit files give per-word correlation 0.96 to 0.99 and a mean absolute difference
+  of about 1 bit per word, biased upward by about 0.5 bits. Durations use s / mean_s with a
+  running mean, so the bias cancels. fp32 Transformers.js agrees with PyTorch to 1.4e-4 bits per
+  token, far inside the plan's 0.01.
+
+- **A warm-up forward pass guards each backend.** After loading, eight tokens go through the
+  model. Non-finite logits or an exception moves on to the next option
+  (WebGPU fp16, then WebGPU fp32, then WASM q8). The fallback is reported in the status chip's
+  tooltip. If every option fails the reader shows the error with explicit choices (retry, CPU
+  backend, other model, fixed rate) and never switches to fixed timing by itself.
+
+- **Grouping works on chunks, not display words.** The model sees whitespace-delimited chunks;
+  long chunks split for display are merged back (`chunksOf`). The invariant compares groups
+  with chunks. A chunk's surprisal is divided evenly across its display pieces, each capped at
+  25 bits. The group count is checked on every run; the decode-and-compare text check runs in
+  dev builds and in tests, because decoding every group of a long book takes seconds.
+
+- **Paragraph separators are not scored.** Newline tokens belong to no word, so their
+  targets are skipped (they are context only).
+
+- **Scoring starts where the reader is.** The window planner takes a cursor: it scores the
+  first unscored target at or after it, continues to the end, then wraps to the beginning.
+  Seeking into unscored text, or starting to buffer, moves the cursor there. Opening a long
+  document at a saved position therefore plays within one window's time instead of after
+  scoring everything before it. From the start of a document the windows are exactly the
+  plan's: [0, W), then advancing by S with the first W - S tokens as context.
+
+- **Log-softmax only on scored rows.** Only S rows per window are needed; the other W - S rows
+  are context, so computing their normalizers would be wasted work.
+
+- **Mean seed.** Measured on the app's sample prose (original text, so not memorized):
+  GPT-2 6.45 bits/word fp32, 6.97 q8; DistilGPT-2 7.35 fp32, 7.73 q8. Seeds are 6.7 and 7.5,
+  weighted as 50 words of prior. The Austen fixture is unsuitable for this: GPT-2 has
+  largely memorized it (5.5 bits/word).
+
+- **Windowing check thresholds.** On the Austen fixture the mean absolute difference at window
+  starts against one full-context pass is 0.15 bits (W = 512), 0.41 (W = 256) and 0.53
+  (W = 128), with word correlations 0.994, 0.988 and 0.945. The test asserts that differences
+  shrink as the window grows and bounds the default W = 512 tightly. Memorized text exaggerates
+  the benefit of long context, so the smaller windows get looser bounds.
+
+- **Independent alignment in the reference script.** The Python reference maps tokens to words
+  with the fast tokenizer's character offsets, not the token-string rule the app uses. The slow
+  test checks that both produce the same words with the same sums.
+
+- **Tokenizer fixtures are vendored** (`test/fixtures/models/Xenova/gpt2`, 2 MB) so the alignment
+  tests run offline.
+
+- **Cross-origin isolation.** The dev and preview servers send COOP/COEP so ONNX Runtime can use
+  threaded WASM. Deployments need the same headers. Vite bundles ONNX Runtime's WASM binary, so
+  nothing is fetched from a CDN at runtime apart from the model.
+
+- **Browser smoke test.** `scripts/smoke.mjs` drives the installed Chrome through
+  `playwright-core` (no browser download): it loads the sample, waits for the model, plays and
+  checks onset error. On this machine: WebGPU fp16 and WASM q8 both work, with a mean onset
+  error of about 1 ms and a maximum of 2 to 3.5 ms.
+
+- **URL overrides** `?backend=wasm` and `?model=<id>` exist for debugging and the smoke test.

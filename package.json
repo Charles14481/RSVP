@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:slow": "vitest run --config vitest.slow.config.ts"
+    "test:slow": "vitest run --config vitest.slow.config.ts --silent=false",
+    "reference": ".venv/Scripts/python scripts/reference_surprisal.py && .venv/Scripts/python scripts/reference_surprisal.py --model distilgpt2",
+    "smoke": "vite build && node scripts/smoke.mjs",
+    "lint:chars": "node scripts/escape-invisible.mjs --check src test"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
@@ -27,6 +30,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "jsdom": "^31.0.1",
+    "playwright-core": "^1.65.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

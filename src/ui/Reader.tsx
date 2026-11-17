@@ -15,6 +15,8 @@ export interface ReaderProps {
   onSettings: (update: (s: Settings) => Settings) => void;
   initialIndex?: number;
   onPosition?: (index: number) => void;
+  /** The reader needs word i timed soon: called on seeks and when playback starts buffering. */
+  onNeedWord?: (index: number) => void;
   onExit: () => void;
   /** Shown instead of the word while buffering (model status, scoring progress). */
   bufferingMessage?: ReactNode;
@@ -66,6 +68,8 @@ export function Reader(props: ReaderProps) {
   settingsRef.current = settings;
   const onPositionRef = useRef(onPosition);
   onPositionRef.current = onPosition;
+  const onNeedWordRef = useRef(props.onNeedWord);
+  onNeedWordRef.current = props.onNeedWord;
   const overlayOpen = Boolean(props.overlay);
   const overlayOpenRef = useRef(overlayOpen);
   overlayOpenRef.current = overlayOpen;
@@ -106,6 +110,7 @@ export function Reader(props: ReaderProps) {
       },
       onState: (s) => {
         setPlayState(s);
+        if (s === 'buffering') onNeedWordRef.current?.(scheduler.index);
         if (s === 'paused' || s === 'ended') {
           setIndex(scheduler.index);
           writeProgress(scheduler.index, true);
@@ -155,6 +160,7 @@ export function Reader(props: ReaderProps) {
     if (s.state === 'paused' && settingsRef.current.resumeAtSentenceStart && !exactResume.current) {
       s.seek(sentenceStart(words, s.index));
     }
+    onNeedWordRef.current?.(s.index);
     exactResume.current = false;
     s.play();
   }, [words]);
@@ -171,6 +177,7 @@ export function Reader(props: ReaderProps) {
       const s = schedulerRef.current;
       if (!s) return;
       s.seek(i);
+      onNeedWordRef.current?.(s.index);
       if (!s.running) {
         exactResume.current = true;
         setIndex(s.index);
