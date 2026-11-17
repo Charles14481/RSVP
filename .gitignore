@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.venv/
+.cache/
+*.local
+.env
+.wrangler/
+__pycache__/
+.DS_Store
