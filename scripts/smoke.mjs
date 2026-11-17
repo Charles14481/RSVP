@@ -158,6 +158,20 @@ try {
     check(/from the cache/.test(chipTitle ?? ''), 'surprisal was not restored from the cache');
     check(progress2?.split(' ')[0] === progress?.split(' ')[0], `position not restored (${progress} vs ${progress2})`);
     check(wpm2 === after, 'settings were not persisted');
+
+    console.log('6. boundary-corrected surprisal rescoring');
+    await page.keyboard.press('i');
+    const plainReadout = await page.locator('.insp-word').nth(5).getAttribute('style');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('s');
+    await page.getByText('Boundary-corrected word probabilities').click();
+    await page.keyboard.press('Escape');
+    await waitForScoring(page);
+    await page.keyboard.press('i');
+    const bcReadout = await page.locator('.insp-word').nth(5).getAttribute('style');
+    await page.keyboard.press('Escape');
+    console.log(`  word 5 shading: ${plainReadout} -> ${bcReadout}`);
+    check(bcReadout && bcReadout !== plainReadout, 'boundary correction did not change the scores');
   }
 } finally {
   await ctx.close();

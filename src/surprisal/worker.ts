@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { AutoModelForCausalLM, AutoTokenizer, Tensor, env } from '@huggingface/transformers';
-import { AlignmentError, type TokenizerLike } from './align';
+import { AlignmentError, wordInitialIds, type TokenizerLike } from './align';
 import { modelSpec, resolveWindow, type Backend, type BackendPreference, type ModelFile } from './models';
 import type { FromWorker, ToWorker } from './protocol';
 import { DocumentScorer, type ForwardFn } from './scorer';
@@ -28,6 +28,18 @@ interface Job {
 }
 
 let loading: { modelId: string; backend: BackendPreference; promise: Promise<Loaded> } | null = null;
+
+/** Word-initial token ids per model, built on first use (decodes the whole vocabulary once). */
+const boundaryCache = new Map<string, Int32Array>();
+function boundaryIdsFor(loaded: Loaded): Int32Array {
+  let ids = boundaryCache.get(loaded.modelId);
+  if (!ids) {
+    const vocab = (loaded.model as unknown as { config?: { vocab_size?: number } }).config?.vocab_size ?? 50257;
+    ids = wordInitialIds(loaded.tokenizer, vocab);
+    boundaryCache.set(loaded.modelId, ids);
+  }
+  return ids;
+}
 let job: Job | null = null;
 
 function post(msg: FromWorker, transfer: Transferable[] = []): void {
@@ -178,7 +190,8 @@ async function runJob(msg: Extract<ToWorker, { type: 'score' }>): Promise<void> 
 
   let scorer: DocumentScorer;
   try {
-    scorer = new DocumentScorer(loaded.tokenizer, msg.text, { verifyText: import.meta.env.DEV });
+    const boundaryIds = msg.boundary ? boundaryIdsFor(loaded) : undefined;
+    scorer = new DocumentScorer(loaded.tokenizer, msg.text, { verifyText: import.meta.env.DEV, boundaryIds });
   } catch (e) {
     if (e instanceof AlignmentError) {
       post({ type: 'job-error', jobId: msg.jobId, kind: 'alignment', message: e.message, detail: e.detail });

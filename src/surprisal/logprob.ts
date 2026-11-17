@@ -28,17 +28,49 @@ function halfTable(): Float32Array {
  * token id it should predict. Raw float16 bits are decoded row by row.
  */
 export function targetLogProbs(logits: LogitsTensor, rows: ArrayLike<number>, targets: ArrayLike<number>): Float64Array {
+  return scoreRows(logits, rows, targets, null, null).logp;
+}
+
+/**
+ * For each requested row: the log-probability of its target and, where
+ * `needSet[k]` is set, the log of the total probability of the token ids in
+ * `set` (the word-initial tokens, for boundary correction). Natural logs.
+ */
+export function scoreRows(
+  logits: LogitsTensor,
+  rows: ArrayLike<number>,
+  targets: ArrayLike<number>,
+  set: Int32Array | null,
+  needSet: ArrayLike<number> | null,
+): { logp: Float64Array; setLog: Float64Array } {
   const V = logits.dims[logits.dims.length - 1];
-  const out = new Float64Array(rows.length);
+  const logp = new Float64Array(rows.length);
+  const setLog = new Float64Array(rows.length).fill(NaN);
   const raw = logits.type === 'float16' && logits.data instanceof Uint16Array ? logits.data : null;
   const scratch = raw ? new Float32Array(V) : null;
   for (let k = 0; k < rows.length; k++) {
-    const offset = rows[k] * V;
-    out[k] = raw
-      ? rowLogProb(decodeHalfRow(raw, offset, V, scratch!), 0, V, targets[k])
-      : rowLogProb(logits.data, offset, V, targets[k]);
+    let data: ArrayLike<number> = logits.data;
+    let offset = rows[k] * V;
+    if (raw) {
+      data = decodeHalfRow(raw, offset, V, scratch!);
+      offset = 0;
+    }
+    let max = -Infinity;
+    for (let i = 0; i < V; i++) {
+      const v = data[offset + i];
+      if (v > max) max = v;
+    }
+    let sum = 0;
+    for (let i = 0; i < V; i++) sum += Math.exp(data[offset + i] - max);
+    const logSum = Math.log(sum);
+    logp[k] = data[offset + targets[k]] - max - logSum;
+    if (set && needSet?.[k]) {
+      let s = 0;
+      for (let i = 0; i < set.length; i++) s += Math.exp(data[offset + set[i]] - max);
+      setLog[k] = Math.log(s) - logSum;
+    }
   }
-  return out;
+  return { logp, setLog };
 }
 
 /**

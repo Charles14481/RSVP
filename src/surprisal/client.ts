@@ -18,6 +18,7 @@ export interface ScoreRequest {
   priorityWord: number;
   known?: Float32Array;
   window?: Partial<WindowConfig>;
+  boundary?: boolean;
   /** Called after each batch lands in the session (e.g. to persist the cache). */
   onProgress?: () => void;
   onDone?: () => void;
@@ -75,7 +76,15 @@ export class SurprisalService {
       return;
     }
     const known = request.known ?? (session.scoredCount ? session.surprisal.slice() : undefined);
-    this.send({ type: 'score', jobId: id, text: session.text, priorityWord: request.priorityWord, known, window: request.window });
+    this.send({
+      type: 'score',
+      jobId: id,
+      text: session.text,
+      priorityWord: request.priorityWord,
+      known,
+      window: request.window,
+      boundary: request.boundary,
+    });
   }
 
   /** Score from this word onward next (after a seek into unscored text). */

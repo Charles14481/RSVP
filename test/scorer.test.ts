@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { normalizeText } from '../src/segment/segment';
-import type { TokenizerLike } from '../src/surprisal/align';
+import { wordInitialIds, type TokenizerLike } from '../src/surprisal/align';
 import { rowLogProb, targetLogProbs } from '../src/surprisal/logprob';
 import { DocumentScorer, MAX_WORD_BITS, type ForwardFn, type ScoreRun } from '../src/surprisal/scorer';
 import { passage } from './helpers/fixtures';
@@ -153,6 +153,94 @@ describe('DocumentScorer', () => {
     expect(scorer.complete).toBe(true);
     const full = await scoreAll(text, 128, 64);
     expect(calls).toBeLessThan(full.scorer.tokenCount / 64);
+  });
+
+  describe('boundary correction', () => {
+    let bow: Int32Array;
+    beforeAll(() => {
+      bow = wordInitialIds(tok, V);
+    });
+
+    const bowBits = (prev: number) => {
+      const row = fakeRow(prev);
+      let max = -Infinity;
+      for (let k = 0; k < V; k++) max = Math.max(max, row[k]);
+      let all = 0;
+      for (let k = 0; k < V; k++) all += Math.exp(row[k] - max);
+      let s = 0;
+      for (const id of bow) s += Math.exp(row[id] - max);
+      return -Math.log2(s / all);
+    };
+
+    it('uses whitespace-initial tokens plus EOS as word starts', () => {
+      const has = (id: number) => bow.includes(id);
+      expect(has(220)).toBe(true); // " "
+      expect(has(198)).toBe(true); // "\n"
+      expect(has(262)).toBe(true); // " the"
+      expect(has(50256)).toBe(true); // <|endoftext|>
+      expect(has(1169)).toBe(false); // "the"
+      expect(has(13)).toBe(false); // "."
+      expect(bow.length).toBeGreaterThan(15000);
+      expect(bow.length).toBeLessThan(40000);
+    });
+
+    async function scoreBoundary(t: string, window: number, stride: number) {
+      const scorer = new DocumentScorer(tok, t, { verifyText: true, boundaryIds: bow });
+      const out = new Float32Array(scorer.words.length).fill(NaN);
+      await scorer.run({ forward: fakeForward, window, stride, onScores: (r) => collect(r, out) });
+      return { scorer, out };
+    }
+
+    it('telescopes within a paragraph: the corrections cancel except at its end', async () => {
+      const { scorer } = await scoreBoundary(text, 128, 64);
+      expect(scorer.complete).toBe(true);
+      const al = scorer.alignment;
+      const plain = scorer.chunkSurprisal();
+      const corrected = scorer.chunkValues();
+      const words = scorer.words;
+      let start = 0;
+      for (let c = 0; c < scorer.chunks.length; c++) {
+        if (!words[scorer.first[c + 1] - 1].paragraphEnd) continue;
+        let sumPlain = 0;
+        let sumCorr = 0;
+        for (let k = start; k <= c; k++) {
+          sumPlain += plain[k];
+          sumCorr += corrected[k];
+        }
+        const e = al.groupEnd[c];
+        const lastAfter = e < al.ids.length ? scorer.boundaryBits![e] : 0;
+        expect(sumCorr).toBeCloseTo(sumPlain + lastAfter, 3);
+        start = c + 1;
+      }
+    });
+
+    it('matches the analytic correction for a word and does not depend on windowing', async () => {
+      const a = await scoreBoundary(text, 1024, 1024);
+      const b = await scoreBoundary(text, 64, 16);
+      for (let i = 0; i < a.out.length; i++) expect(b.out[i]).toBeCloseTo(a.out[i], 4);
+
+      const { scorer } = a;
+      const al = scorer.alignment;
+      const c = 5; // a mid-sentence word with a leading space
+      const s = al.groupStart[c];
+      const e = al.groupEnd[c];
+      let tokens = 0;
+      for (let j = s; j < e; j++) tokens += fakeBits(al.ids[j - 1], al.ids[j]);
+      const expected = tokens + bowBits(al.ids[e - 1]) - bowBits(al.ids[s - 1]);
+      expect(scorer.chunkValue(c)).toBeCloseTo(expected, 3);
+      expect(scorer.chunkValue(c)).not.toBeCloseTo(tokens, 3);
+      // The document's first word has no preceding space: no "before" factor.
+      expect(scorer.chunkValue(0)).toBeCloseTo(scorer.chunkSurprisal()[0] + bowBits(al.ids[al.groupEnd[0] - 1]), 3);
+    });
+
+    it('skips words known from the cache in boundary mode too', async () => {
+      const scorer = new DocumentScorer(tok, text, { boundaryIds: bow });
+      scorer.markKnown(new Float32Array(scorer.words.length).fill(3));
+      expect(scorer.complete).toBe(true);
+      let calls = 0;
+      await scorer.run({ forward: async (ids) => (calls++, fakeForward(ids)), window: 128, stride: 64 });
+      expect(calls).toBe(0);
+    });
   });
 
   it('stops between windows when cancelled', async () => {

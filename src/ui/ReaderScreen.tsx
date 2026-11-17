@@ -33,11 +33,14 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
   const { model, job } = useSyncExternalStore(service.subscribe, service.getSnapshot);
   const [panel, setPanel] = useState<'settings' | 'inspector' | 'shortcuts' | null>(null);
   const positionRef = useRef(doc.position);
-  const { modelId, backend, window } = settings;
+  const { modelId, backend, window, boundaryCorrection } = settings;
+  // Boundary-corrected values differ from plain ones, so they are cached under their own key.
+  const cacheKey = boundaryCorrection ? `${modelId}+boundary` : modelId;
   const { hash, id } = doc.meta;
 
   // Surprisal belongs to a model, so switching models starts a fresh session.
-  const session = useMemo(() => new ReaderSession(doc.text, modelSpec(modelId).meanBits), [doc.text, modelId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const session = useMemo(() => new ReaderSession(doc.text, modelSpec(modelId).meanBits), [doc.text, cacheKey]);
   const version = useSyncExternalStore(session.subscribe, () => session.version);
 
   useEffect(() => {
@@ -47,10 +50,10 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
     const flush = () => {
       if (!dirty) return;
       dirty = false;
-      void saveSurprisal(hash, modelId, session.surprisal).catch(() => {});
+      void saveSurprisal(hash, cacheKey, session.surprisal).catch(() => {});
     };
     void (async () => {
-      const cached = await loadSurprisal(hash, modelId, session.words.length).catch(() => null);
+      const cached = await loadSurprisal(hash, cacheKey, session.words.length).catch(() => null);
       if (cancelled) return;
       if (cached) session.applyScores(0, cached);
       if (session.complete) return;
@@ -58,6 +61,7 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
       service.score(session, {
         priorityWord: positionRef.current,
         window: window ? { window } : undefined,
+        boundary: boundaryCorrection,
         onProgress: () => {
           dirty = true;
           timer ??= setTimeout(() => {
@@ -74,7 +78,7 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
       flush();
       service.cancel();
     };
-  }, [service, session, hash, modelId, backend, window]);
+  }, [service, session, hash, modelId, cacheKey, backend, window, boundaryCorrection]);
 
   const onPosition = useCallback(
     (i: number) => {
@@ -117,7 +121,7 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
 
   return (
     <Reader
-      key={session.text.length + modelId}
+      key={session.text.length + cacheKey}
       title={doc.meta.title}
       session={session}
       settings={settings}

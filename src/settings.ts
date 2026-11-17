@@ -18,6 +18,8 @@ export interface Settings {
   backend: BackendPreference;
   /** Context window in tokens; 0 = the backend's default. */
   window: number;
+  /** Boundary-corrected word probabilities (Pimentel & Meister 2024; Oh & Schuler 2024). */
+  boundaryCorrection: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   modelId: DEFAULT_MODEL_ID,
   backend: 'auto',
   window: 0,
+  boundaryCorrection: false,
 };
 
 /** Merge stored settings over defaults so new fields get default values. */

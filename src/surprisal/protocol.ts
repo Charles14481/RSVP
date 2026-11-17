@@ -11,6 +11,8 @@ export type ToWorker =
       known?: Float32Array;
       priorityWord: number;
       window?: Partial<WindowConfig>;
+      /** Boundary-corrected word surprisal. */
+      boundary?: boolean;
     }
   | { type: 'priority'; jobId: number; word: number }
   | { type: 'cancel'; jobId: number };

@@ -249,3 +249,23 @@ Each entry: what changed, and why.
   Scoring errors keep the words already scored. Alignment errors name the word that failed.
   Storage, PDF (no text layer, password, invalid file) and URL failures appear in the library with
   the way forward (usually: paste the text).
+
+## Milestone 7
+
+- **Boundary-corrected surprisal (flag, off by default).** With B(d) the probability, under
+  distribution d, that the next token starts a new word (every token whose text starts with
+  whitespace, plus EOS), a word's surprisal becomes
+  s(tokens) − log₂ B(after) + log₂ B(before). "Before" is the distribution that predicts the
+  word's first token, and is used only when that token carries a leading space; after a newline
+  or at the start of the text a new word is certain. "After" is the distribution that predicts
+  the token following the word's last token; the document's last word has none and keeps
+  B = 1. A newline that follows a paragraph's last word is scored for this purpose even though
+  it belongs to no word.
+  - Word-initial ids are found by decoding the whole vocabulary once per model in the worker
+    (about 0.2 s for GPT-2).
+  - Checks: within a paragraph the corrections telescope (unit test with an exact identity), the
+    values do not depend on windowing, and they match an independent PyTorch implementation in
+    `scripts/reference_surprisal.py` to 1.5e-4 bits. On the fixtures the correction moves words by
+    0.2 to 0.4 bits on average.
+  - Corrected values are cached under `<model>+boundary`, so toggling the flag does not mix
+    plain and corrected scores.

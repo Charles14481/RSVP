@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { AutoModelForCausalLM, AutoTokenizer, Tensor, env } from '@huggingface/transformers';
 import { describe, expect, it } from 'vitest';
 import { normalizeText } from '../../src/segment/segment';
-import type { TokenizerLike } from '../../src/surprisal/align';
+import { wordInitialIds, type TokenizerLike } from '../../src/surprisal/align';
 import { DocumentScorer, type ForwardFn } from '../../src/surprisal/scorer';
 import { SAMPLE_TEXT } from '../../src/ui/sample';
 import { PASSAGES, passage, type PassageName } from '../helpers/fixtures';
@@ -20,6 +20,7 @@ interface Reference {
   token_bits: (number | null)[];
   words: string[];
   word_bits: number[];
+  word_bits_bc: number[];
   window: number;
   stride: number;
 }
@@ -110,6 +111,27 @@ describe.each([
     console.log(`${id} ${name}: ${ref.ids.length} tokens, max token diff ${maxDiff.toExponential(2)} bits, max word diff ${maxWordDiff.toExponential(2)} bits`);
     expect(maxDiff).toBeLessThan(0.01);
     expect(maxWordDiff).toBeLessThan(0.03);
+    await model.dispose();
+  });
+});
+
+describe('boundary-corrected surprisal against PyTorch', () => {
+  it.each(PASSAGES)('agrees on %s', async (name) => {
+    const { tokenizer, model } = await load('Xenova/gpt2', 'fp32');
+    const ref = reference(name, 'gpt2');
+    const boundaryIds = wordInitialIds(tokenizer, 50257);
+    const scorer = new DocumentScorer(tokenizer, passage(name), { verifyText: true, boundaryIds });
+    await scorer.run({ forward: forwardOf(model), window: ref.window, stride: ref.stride });
+    const values = scorer.chunkValues();
+    let maxDiff = 0;
+    let moved = 0;
+    for (let c = 0; c < ref.words.length; c++) {
+      maxDiff = Math.max(maxDiff, Math.abs(values[c] - ref.word_bits_bc[c]));
+      moved += Math.abs(values[c] - ref.word_bits[c]) / ref.words.length;
+    }
+    console.log(`${name}: boundary-corrected max diff ${maxDiff.toExponential(2)} bits; correction moves words by ${moved.toFixed(2)} bits on average`);
+    expect(maxDiff).toBeLessThan(0.03);
+    expect(moved).toBeGreaterThan(0.05);
     await model.dispose();
   });
 });

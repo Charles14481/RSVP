@@ -1016,3 +1016,7 @@ kbd {
     margin-top: clamp(16px, 10vh, 120px);
   }
 }
+
+.field-hint.block {
+  display: block;
+}

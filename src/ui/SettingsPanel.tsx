@@ -214,6 +214,20 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
           hint="Tokens of context per forward pass. Auto is 512 on WebGPU and 256 on WASM. Larger windows use more memory; cached words keep their scores."
           onChange={(v) => set({ window: v })}
         />
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.boundaryCorrection}
+            onChange={(e) => set({ boundaryCorrection: e.target.checked })}
+          />
+          <span>
+            Boundary-corrected word probabilities
+            <span className="field-hint block">
+              Experimental. Accounts for where a word ends, not just how its tokens start (Pimentel &amp; Meister 2024; Oh &amp; Schuler 2024).
+              Rescores the document.
+            </span>
+          </span>
+        </label>
         <div className="row">
           <button
             className="btn"

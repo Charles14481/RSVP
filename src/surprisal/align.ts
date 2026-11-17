@@ -46,6 +46,21 @@ export function pieceDecoder(tokenizer: TokenizerLike): (id: number) => string {
   };
 }
 
+/**
+ * Token ids that begin a new word for a leading-whitespace tokenizer: every
+ * token whose string starts with whitespace, plus EOS. Their total probability
+ * is the chance that the current word ends here (boundary correction).
+ */
+export function wordInitialIds(tokenizer: TokenizerLike, vocabSize: number): Int32Array {
+  const piece = pieceDecoder(tokenizer);
+  const eos = tokenizer.eos_token_id ?? -1;
+  const ids: number[] = [];
+  for (let id = 0; id < vocabSize; id++) {
+    if (id === eos || /^\s/.test(piece(id))) ids.push(id);
+  }
+  return Int32Array.from(ids);
+}
+
 /** Group tokens into words by the rules above. `skip[i]` marks special tokens. */
 export function groupTokens(
   pieces: readonly string[],
