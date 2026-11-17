@@ -14,7 +14,7 @@
     "test:slow": "vitest run --config vitest.slow.config.ts --silent=false",
     "reference": ".venv/Scripts/python scripts/reference_surprisal.py && .venv/Scripts/python scripts/reference_surprisal.py --model distilgpt2",
     "smoke": "vite build && node scripts/smoke.mjs",
-    "lint:chars": "node scripts/escape-invisible.mjs --check src test",
+    "lint:chars": "node scripts/escape-invisible.mjs --check src test server worker",
     "smoke:pdf": "vite build && node scripts/smoke-pdf.mjs",
     "smoke:url": "node scripts/smoke-url.mjs"
   },

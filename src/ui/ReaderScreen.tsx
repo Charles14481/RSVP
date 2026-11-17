@@ -9,6 +9,7 @@ import { Inspector } from './Inspector';
 import { bufferingMessage, Problem, StatusChip } from './ModelStatus';
 import { Reader } from './Reader';
 import { SettingsPanel } from './SettingsPanel';
+import { Shortcuts } from './Shortcuts';
 
 export interface OpenDoc {
   meta: DocMeta;
@@ -30,7 +31,7 @@ const SAVE_EVERY_MS = 2000;
 export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
   const service = surprisalService();
   const { model, job } = useSyncExternalStore(service.subscribe, service.getSnapshot);
-  const [panel, setPanel] = useState<'settings' | 'inspector' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'inspector' | 'shortcuts' | null>(null);
   const positionRef = useRef(doc.position);
   const { modelId, backend, window } = settings;
   const { hash, id } = doc.meta;
@@ -110,7 +111,9 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
         ? ({ index, jump }: { index: number; jump: (i: number) => void }) => (
             <Inspector session={session} pacing={pacing} index={index} onJump={jump} onClose={closePanel} modelLabel={spec.label} />
           )
-        : null;
+        : panel === 'shortcuts'
+          ? () => <Shortcuts onClose={closePanel} />
+          : null;
 
   return (
     <Reader
@@ -156,6 +159,7 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
       onKey={(key) => {
         if (key === 'i') setPanel('inspector');
         else if (key === 's') setPanel('settings');
+        else if (key === '?') setPanel('shortcuts');
         else return false;
         return true;
       }}

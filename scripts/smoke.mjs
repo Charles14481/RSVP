@@ -120,6 +120,11 @@ try {
     await page.keyboard.press('Escape');
     check((await page.locator('.insp-passage').count()) === 0, 'Escape did not close the inspector');
 
+    await page.keyboard.press('Shift+Slash');
+    check((await page.locator('.keys kbd').count()) >= 6, '? did not open the shortcuts list');
+    await page.keyboard.press('Escape');
+    check((await page.locator('.keys').count()) === 0, 'Escape did not close the shortcuts list');
+
     console.log('4. settings apply live');
     await page.keyboard.press('s');
     await page.locator('.panel h3', { hasText: 'Pace' }).waitFor();

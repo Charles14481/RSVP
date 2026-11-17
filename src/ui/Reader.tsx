@@ -268,14 +268,16 @@ export function Reader(props: ReaderProps) {
   };
 
   const running = playState === 'playing' || playState === 'buffering';
+  const touch = useMemo(() => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches, []);
   const showContext = !running && !props.problem;
   const wpm = settings.timing.targetWpm;
 
   return (
     <div className="reader" data-state={playState}>
       <header className="reader-bar">
-        <button className="btn ghost" onClick={onExit} title="Back to library (Esc)">
-          ← Library
+        <button className="btn ghost back" onClick={onExit} title="Back to library (Esc)" aria-label="Back to library">
+          <span aria-hidden="true">←</span>
+          <span className="wide-only"> Library</span>
         </button>
         <div className="reader-title" title={title}>
           {title}
@@ -298,7 +300,7 @@ export function Reader(props: ReaderProps) {
       </header>
 
       <main className="reader-main" onClick={toggle}>
-        <div className="stage" ref={stageRef} style={{ fontSize: settings.fontSize }}>
+        <div className="stage" ref={stageRef} style={{ fontSize: `min(${settings.fontSize}px, 12vw)` }}>
           <div className="stage-guide" aria-hidden="true" />
           <div className="rsvp-word" ref={wordRef} aria-live="off">
             <span ref={leftRef} />
@@ -322,7 +324,13 @@ export function Reader(props: ReaderProps) {
         {showContext && (
           <>
             <div className="hint">
-              {playState === 'ended' ? 'Finished. Space to read again.' : 'Space to read · click any word to jump'}
+              {playState === 'ended'
+                ? touch
+                  ? 'Finished. Tap to read again.'
+                  : 'Finished. Space to read again.'
+                : touch
+                  ? 'Tap the word to read · tap the text to jump'
+                  : 'Space to read · click any word to jump · ? for shortcuts'}
             </div>
             <ContextView words={words} index={index} onPick={jump} />
           </>
@@ -330,8 +338,30 @@ export function Reader(props: ReaderProps) {
       </main>
 
       <footer className="reader-foot">
+        <button
+          className="btn ghost square"
+          onClick={() => {
+            const s = schedulerRef.current;
+            if (s) jump(previousSentenceStart(words, s.index, s.running ? 2 : 0));
+          }}
+          aria-label="Previous sentence"
+          title="Previous sentence (Left)"
+        >
+          ‹
+        </button>
         <button className="btn primary play" onClick={toggle} aria-label={running ? 'Pause' : 'Play'}>
           {running ? 'Pause' : 'Play'}
+        </button>
+        <button
+          className="btn ghost square"
+          onClick={() => {
+            const s = schedulerRef.current;
+            if (s) jump(nextSentenceStart(words, s.index));
+          }}
+          aria-label="Next sentence"
+          title="Next sentence (Right)"
+        >
+          ›
         </button>
         <div
           className="progress"

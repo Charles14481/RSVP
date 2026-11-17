@@ -228,3 +228,24 @@ Each entry: what changed, and why.
 
 - **Windows note.** Git Bash rewrites `VITE_FETCH_PROXY_URL=/api/fetch` into a Windows path, so
   `scripts/smoke-url.mjs` sets the variable itself and builds through Vite's API.
+
+## Milestone 6
+
+- **Touch.** Tapping the reader plays and pauses (the plan's "tap to pause", in both directions).
+  Previous- and next-sentence buttons flank Play in the footer, since touch has no arrow keys.
+  The hint line reads "Tap…" or "Space…" depending on `(pointer: coarse)`. `touch-action:
+  manipulation` stops double-tap zoom from eating taps.
+
+- **Narrow screens (under 640 px).** The back button shrinks to an arrow, the status chip is
+  hidden (buffering and problems are still shown in the reader), and the word size is capped at
+  12vw so a 44 px setting still fits a phone. Long words shrink to fit either side of the pivot,
+  as on desktop.
+
+- **Shortcut list on `?`**, alongside I (inspector) and S (settings). The plan's shortcuts are
+  unchanged.
+
+- **Error states, checked in the browser.** If the model fails to load, the reader holds playback
+  and offers retry, the other model, the CPU backend, or fixed rate. It never switches by itself.
+  Scoring errors keep the words already scored. Alignment errors name the word that failed.
+  Storage, PDF (no text layer, password, invalid file) and URL failures appear in the library with
+  the way forward (usually: paste the text).

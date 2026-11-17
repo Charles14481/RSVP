@@ -942,3 +942,77 @@ p {
 .url-error {
   color: var(--text);
 }
+
+/* Shortcuts */
+
+.keys {
+  margin: 14px 0 18px;
+}
+
+.keys > div {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.keys dt {
+  flex: none;
+  width: 78px;
+}
+
+.keys dd {
+  margin: 0;
+}
+
+kbd {
+  font-family: var(--ui-font);
+  font-size: 12.5px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+/* Touch and narrow screens */
+
+.reader-main,
+.reader-foot {
+  touch-action: manipulation;
+}
+
+.rate-value {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .wide-only,
+  .reader-bar .chip {
+    display: none;
+  }
+
+  .reader-bar .btn {
+    padding: 6px 8px;
+  }
+
+  .reader-foot {
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: 10px;
+  }
+
+  .play {
+    min-width: 64px;
+  }
+
+  .progress-label {
+    font-size: 12px;
+  }
+
+  .stage {
+    margin-top: clamp(16px, 10vh, 120px);
+  }
+}
