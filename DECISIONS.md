@@ -146,3 +146,42 @@ Each entry: what changed, and why.
 
 - **The paste box became the import preview.** Pasting, text files and (next) PDFs and URLs all
   go through the same editable preview with live word count and reading-time estimate.
+
+## Milestone 4
+
+- **PDF layout is a pure module** (`src/ingest/pdfLayout.ts`) fed positioned items by a thin
+  pdf.js wrapper, so it is unit-tested on synthetic pages, and the wrapper is tested on real
+  PDFs produced by a small writer in `test/helpers/pdfWriter.ts`.
+
+- **Columns.** A page is read as two columns when some vertical band in the middle 30 to 70
+  percent of the page, at least 0.8 em wide, is crossed by at most a tenth of the items, and
+  both sides have at least a fifth of the items over four or more lines. Items crossing the
+  gutter (titles) are read before the columns if above them, after otherwise. Anything subtler
+  is left to the preview, as planned.
+
+- **Headers and footers.** Among the top two and bottom two lines of each page, text that recurs
+  (digits ignored, so "Page 3" matches "Page 4") on at least half of the pages with text, and on
+  at least three pages, is dropped. Bare page numbers (arabic, roman, "Page n of m", "- n -") at
+  a page edge are dropped everywhere.
+
+- **Paragraphs.** A new paragraph starts at a vertical gap over 1.45 times the block's median
+  line spacing, a first-line indent, a font-size change (headings), or after a line that ends
+  20 percent or more short of the column's right edge with terminal punctuation (35 percent
+  without). Across a page or column boundary only the indent and short-line rules apply.
+
+- **Hyphenation.** A line ending in letter + hyphen joins the next line without the hyphen when
+  the next line starts lowercase ("experi- ment"), and keeps the hyphen without a space when it
+  starts with a capital or digit ("Anglo- Saxon", "COVID- 19"). A compound broken at its own
+  hyphen ("well- known") loses the hyphen; the preview shows the result.
+
+- **Rotated and vertical text is skipped** (watermarks, sideways margin notes).
+
+- **pdf.js is loaded on demand** with its worker, so it costs nothing until a PDF is opened.
+  No `standardFontDataUrl` is configured: text extraction works without the standard font
+  files, and pdf.js only logs a warning for PDFs using non-embedded standard fonts.
+
+- **Large-PDF check** (`scripts/smoke-pdf.mjs`): a generated 300-page PDF (148,904 words,
+  171k tokens) extracts in about 1 s in Chrome. Playback starts 1.9 s after the model is ready
+  on WebGPU and 1.5 s on WASM, about 6 to 7 s after "Save and read" including model start-up.
+  While scoring continues there are no long tasks on the main thread, the worst frame gap is
+  one frame, and mean onset error stays near 1 ms.

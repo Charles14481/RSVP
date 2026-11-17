@@ -101,13 +101,31 @@ export function App() {
     const title = file.name.replace(/\.[^.]+$/, '');
     try {
       if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
-        setMessage('PDF import arrives in the next milestone. Copy the text and paste it for now.');
+        setMessage(`Reading ${file.name}…`);
+        const { extractPdfFile } = await import('./ingest/pdfBrowser');
+        let last = 0;
+        const pdf = await extractPdfFile(file, (page, pages) => {
+          const now = performance.now();
+          if (now - last > 100 || page === pages) {
+            last = now;
+            setMessage(`Reading ${file.name}: page ${page} of ${pages}…`);
+          }
+        });
+        setMessage(null);
+        if (!pdf.text.trim()) {
+          setMessage(`${file.name} contains no readable text.`);
+          return;
+        }
+        setView({
+          kind: 'import',
+          draft: { title: pdf.title ?? title, text: pdf.text, source: 'pdf', origin: file.name, notes: pdf.notes },
+        });
         return;
       }
       const text = await file.text();
       setView({ kind: 'import', draft: { title, text, source: 'file', origin: file.name } });
     } catch (e) {
-      setMessage(`Could not read ${file.name}: ${String(e)}`);
+      setMessage(e instanceof Error && /NoTextLayer|PdfError/.test(e.name) ? e.message : `Could not read ${file.name}: ${String(e)}`);
     }
   }, []);
 
