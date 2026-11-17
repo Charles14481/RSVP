@@ -269,3 +269,16 @@ Each entry: what changed, and why.
     0.2 to 0.4 bits on average.
   - Corrected values are cached under `<model>+boundary`, so toggling the flag does not mix
     plain and corrected scores.
+
+- **PWA and offline.** `tools/swPlugin.ts` writes `sw.js` at build time with every built file
+  (including the 26 MB ONNX Runtime WASM and the pdf.js worker) to precache. Navigations are
+  network-first, so a new deployment is picked up, and fall back to the cached shell; hashed
+  assets are cache-first. The service worker leaves cross-origin requests and `/api/` alone:
+  Transformers.js already keeps model files in Cache Storage and reads them before the network,
+  so scoring works offline once the model has been downloaded. Matching ignores `Vary`, because
+  module scripts carry an `Origin` header that the precache requests lacked; with `Vary: Origin`
+  from the server, every script missed the cache offline. Cached responses keep their COOP/COEP
+  headers, so the offline app is still cross-origin isolated. The service worker is registered
+  in production builds only. The build uses a relative `base` so it works from a subpath.
+  Checked by `scripts/smoke-offline.mjs`: offline reload, cached document plays, and a new
+  document is scored offline in about 3 s.

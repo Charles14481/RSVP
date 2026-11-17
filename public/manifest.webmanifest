@@ -1,0 +1,14 @@
+{
+  "name": "Surprisal Reader",
+  "short_name": "Surprisal",
+  "description": "One word at a time, paced by how predictable each word is.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#c2412d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

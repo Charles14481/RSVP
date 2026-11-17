@@ -16,7 +16,8 @@
     "smoke": "vite build && node scripts/smoke.mjs",
     "lint:chars": "node scripts/escape-invisible.mjs --check src test server worker",
     "smoke:pdf": "vite build && node scripts/smoke-pdf.mjs",
-    "smoke:url": "node scripts/smoke-url.mjs"
+    "smoke:url": "node scripts/smoke-url.mjs",
+    "smoke:offline": "vite build && node scripts/smoke-offline.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",

@@ -46,6 +46,12 @@ very next word.
   hover. Use it to tune the settings and to spot alignment problems.
 - **Library:** documents, reading positions, settings and surprisal scores are kept in IndexedDB.
   A fully scored document reopens instantly without loading the model.
+- **Offline:** the built app installs a service worker and can be installed as an app. Once the
+  model has been downloaded, reading and scoring new text work without a network. Only URL import
+  needs a connection.
+- **Boundary correction (experimental):** a setting that corrects word probabilities for
+  tokenizers that put the space at the start of a word (Pimentel & Meister 2024; Oh & Schuler 2024).
+  It changes word surprisal by a few tenths of a bit on average.
 
 ### Keyboard
 
@@ -80,6 +86,7 @@ npm run build        # type-check and build to dist/
 | `npm run smoke` | Builds, then drives the installed Chrome headlessly: loads the sample, plays, checks onset timing, the inspector and settings, then reloads to check persistence. Add `-- --wasm` to force the CPU backend. |
 | `npm run smoke:pdf` | Generates a 300-page PDF, imports it, and measures time to first word and UI responsiveness while scoring. |
 | `npm run smoke:url` | Builds with the proxy enabled and imports a Wikipedia article through it. |
+| `npm run smoke:offline` | Installs the service worker, then cuts the network: reopens a cached document and scores a new one offline. |
 
 The smoke scripts use `playwright-core` with the Chrome already installed on the machine. No
 browser is downloaded.
@@ -133,6 +140,8 @@ src/store/     IndexedDB persistence
 src/ui/        library, import preview, reader, settings, inspector
 server/        fetch proxy handler and Vite middleware
 worker/        the same proxy as a Cloudflare Worker
+tools/         build-time service worker generator
+public/        manifest and icon
 scripts/       reference script, smoke tests
 ```
 

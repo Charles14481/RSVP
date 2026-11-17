@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { fetchProxyPlugin } from './server/vitePlugin.ts';
+import { serviceWorkerPlugin } from './tools/swPlugin.ts';
 
 /**
  * Cross-origin isolation lets ONNX Runtime use multithreaded WASM
@@ -12,7 +13,8 @@ const isolation = {
 };
 
 export default defineConfig({
-  plugins: [react(), fetchProxyPlugin()],
+  base: './',
+  plugins: [react(), fetchProxyPlugin(), serviceWorkerPlugin()],
   worker: { format: 'es' },
   server: { headers: isolation },
   preview: { headers: isolation },
