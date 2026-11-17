@@ -226,6 +226,13 @@ Each entry: what changed, and why.
 
 - **Title cleanup.** A trailing " | Site Name" is removed when Readability reports the site name.
 
+- **The Node hosts do not use the global `fetch`.** Node's bundled undici can throw an
+  uncatchable `assert(!this.paused)` from its HTTP parser when a response body is cancelled while
+  the server closes the connection. The proxy cancels bodies on redirects, error statuses and
+  non-HTML responses, and the assertion killed the dev server. The Vite middleware therefore
+  passes `server/nodeFetch.ts`, a minimal fetch over `node:http`/`node:https`, in which every
+  failure is an ordinary error event. The Worker keeps the platform `fetch`.
+
 - **Windows note.** Git Bash rewrites `VITE_FETCH_PROXY_URL=/api/fetch` into a Windows path, so
   `scripts/smoke-url.mjs` sets the variable itself and builds through Vite's API.
 

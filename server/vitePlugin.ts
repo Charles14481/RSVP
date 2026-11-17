@@ -2,6 +2,7 @@ import { lookup } from 'node:dns/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Connect, Plugin } from 'vite';
 import { handleFetch } from './fetchProxy.ts';
+import { nodeFetch } from './nodeFetch.ts';
 
 /** Resolve all addresses so DNS answers pointing at private networks are refused. */
 async function resolve(hostname: string): Promise<string[]> {
@@ -21,6 +22,8 @@ function middleware(): Connect.NextHandleFunction {
       allowedOrigins: [`http://${host}`, `https://${host}`],
       allowMissingOrigin: true,
       resolve,
+      // Not the global fetch: see nodeFetch.ts for the undici crash this avoids.
+      fetchImpl: nodeFetch,
     })
       .then(async (response) => {
         res.statusCode = response.status;
