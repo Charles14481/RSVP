@@ -157,7 +157,9 @@ try {
     console.log(`  reopened in ${Date.now() - t0} ms (${ms} ms to scored): ${chipTitle}; ${progress2}; ${wpm2} wpm`);
     check(/from the cache/.test(chipTitle ?? ''), 'surprisal was not restored from the cache');
     check(progress2?.split(' ')[0] === progress?.split(' ')[0], `position not restored (${progress} vs ${progress2})`);
-    check(wpm2 === after, 'settings were not persisted');
+    // With ?backend=wasm the app deliberately never saves settings (URL overrides are per page load).
+    if (flag('--wasm')) check(wpm2 === before, 'settings were saved despite a URL override');
+    else check(wpm2 === after, 'settings were not persisted');
 
     console.log('6. boundary-corrected surprisal rescoring');
     await page.keyboard.press('i');
