@@ -24,9 +24,11 @@ export interface ReaderProps {
   problem?: ReactNode;
   /** Extra top-bar controls. */
   actions?: ReactNode;
-  /** Panels rendered over the reader. While one is open, shortcuts are off. */
-  overlay?: ReactNode;
+  /** A panel rendered over the reader. While one is open, playback pauses and shortcuts are off. */
+  overlay?: ((ctx: { index: number; jump: (i: number) => void }) => ReactNode) | null;
   onCloseOverlay?: () => void;
+  /** Extra single-key shortcuts (lowercased key); return true if handled. */
+  onKey?: (key: string) => boolean;
 }
 
 const TEXT_ENTRY = /^(INPUT|TEXTAREA|SELECT)$/;
@@ -70,6 +72,8 @@ export function Reader(props: ReaderProps) {
   onPositionRef.current = onPosition;
   const onNeedWordRef = useRef(props.onNeedWord);
   onNeedWordRef.current = props.onNeedWord;
+  const onKeyRef = useRef(props.onKey);
+  onKeyRef.current = props.onKey;
   const overlayOpen = Boolean(props.overlay);
   const overlayOpenRef = useRef(overlayOpen);
   overlayOpenRef.current = overlayOpen;
@@ -237,7 +241,7 @@ export function Reader(props: ReaderProps) {
           onExit();
           break;
         default:
-          return;
+          if (!onKeyRef.current?.(e.key.toLowerCase())) return;
       }
       e.preventDefault();
     };
@@ -349,7 +353,7 @@ export function Reader(props: ReaderProps) {
         <span className="progress-label" ref={labelRef} />
       </footer>
 
-      {props.overlay}
+      {props.overlay?.({ index, jump })}
     </div>
   );
 }

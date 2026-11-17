@@ -1,112 +1,164 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { ReaderSession } from './player/session';
-import { normalizeText } from './segment/segment';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { normalizeText, segment } from './segment/segment';
 import { applyUrlOverrides, DEFAULT_SETTINGS, resolveTheme, type Settings } from './settings';
+import { addDoc, clearSurprisalCache, deleteDoc, getDoc, listDocs, loadSettings, saveSettings, updateDoc, type LibraryEntry } from './store/db';
 import { surprisalService } from './surprisal/client';
-import { modelSpec } from './surprisal/models';
-import { bufferingMessage, Problem, StatusChip } from './ui/ModelStatus';
-import { Reader } from './ui/Reader';
+import { ImportPreview, type ImportDraft } from './ui/ImportPreview';
+import { Library } from './ui/Library';
+import { ReaderScreen, type OpenDoc } from './ui/ReaderScreen';
 import { SAMPLE_TEXT, SAMPLE_TITLE } from './ui/sample';
+import { SettingsPanel } from './ui/SettingsPanel';
 
-interface OpenDoc {
-  title: string;
-  text: string;
-}
+type View = { kind: 'library' } | { kind: 'import'; draft: ImportDraft } | { kind: 'reader'; doc: OpenDoc };
+
+/** URL overrides are for this page load only and are never saved. */
+const HAS_OVERRIDES = /[?&](backend|model)=/.test(location.search);
 
 export function App() {
-  const [settings, setSettings] = useState<Settings>(() => applyUrlOverrides(DEFAULT_SETTINGS, location.search));
-  const [doc, setDoc] = useState<OpenDoc | null>(null);
-  const [draft, setDraft] = useState('');
+  const [settings, setSettingsState] = useState<Settings | null>(null);
+  const [view, setView] = useState<View>({ kind: 'library' });
+  const [entries, setEntries] = useState<LibraryEntry[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const service = surprisalService();
-  const { model, job } = useSyncExternalStore(service.subscribe, service.getSnapshot);
+  const { model } = useSyncExternalStore(service.subscribe, service.getSnapshot);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = resolveTheme(settings.theme);
-  }, [settings.theme]);
+    loadSettings()
+      .catch(() => DEFAULT_SETTINGS)
+      .then((s) => setSettingsState(applyUrlOverrides(s, location.search)));
+  }, []);
 
-  // Surprisal depends on the model, so a model switch starts a fresh session.
-  const session = useMemo(
-    () => (doc ? new ReaderSession(doc.text, modelSpec(settings.modelId).meanBits) : null),
-    [doc, settings.modelId],
+  const setSettings = useCallback((update: (s: Settings) => Settings) => {
+    setSettingsState((s) => (s ? update(s) : s));
+  }, []);
+
+  // Persist settings shortly after they stop changing.
+  const firstSave = useRef(true);
+  useEffect(() => {
+    if (!settings || HAS_OVERRIDES) return;
+    if (firstSave.current) {
+      firstSave.current = false;
+      return;
+    }
+    const t = setTimeout(() => void saveSettings(settings).catch(() => {}), 300);
+    return () => clearTimeout(t);
+  }, [settings]);
+
+  const theme = settings?.theme ?? 'system';
+  useEffect(() => {
+    const apply = () => (document.documentElement.dataset.theme = resolveTheme(theme));
+    apply();
+    if (theme !== 'system') return;
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [theme]);
+
+  const refresh = useCallback(() => {
+    listDocs()
+      .then(setEntries)
+      .catch((e) => {
+        setEntries([]);
+        setMessage(`Could not open the library (${String(e)}). Storage may be disabled in this browser.`);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (view.kind === 'library') refresh();
+  }, [view.kind, refresh]);
+
+  const open = useCallback(async (id: string) => {
+    const doc = await getDoc(id);
+    if (!doc) {
+      setMessage('That document could not be found.');
+      return;
+    }
+    await updateDoc(id, { openedAt: Date.now() }).catch(() => {});
+    setMessage(null);
+    setView({ kind: 'reader', doc });
+  }, []);
+
+  const save = useCallback(
+    async (input: Parameters<typeof addDoc>[0]) => {
+      setBusy(true);
+      try {
+        const meta = await addDoc(input);
+        await open(meta.id);
+      } catch (e) {
+        setMessage(`Could not save the document: ${String(e)}`);
+        setView({ kind: 'library' });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [open],
   );
 
-  useEffect(() => {
-    if (!session) return;
-    service.load(settings.modelId, settings.backend);
-    service.score(session, { priorityWord: 0, window: settings.window ? { window: settings.window } : undefined });
-    return () => service.cancel();
-  }, [service, session, settings.modelId, settings.backend, settings.window]);
+  const importFile = useCallback(async (file: File) => {
+    setMessage(null);
+    const title = file.name.replace(/\.[^.]+$/, '');
+    try {
+      if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+        setMessage('PDF import arrives in the next milestone. Copy the text and paste it for now.');
+        return;
+      }
+      const text = await file.text();
+      setView({ kind: 'import', draft: { title, text, source: 'file', origin: file.name } });
+    } catch (e) {
+      setMessage(`Could not read ${file.name}: ${String(e)}`);
+    }
+  }, []);
 
-  const exit = useCallback(() => setDoc(null), []);
-  const needWord = useCallback((i: number) => service.prioritize(i), [service]);
+  const openSample = useCallback(async () => {
+    const existing = (await listDocs()).find((d) => d.source === 'sample');
+    if (existing) return open(existing.id);
+    const text = normalizeText(SAMPLE_TEXT);
+    await save({ title: SAMPLE_TITLE, text, words: segment(text).length, source: 'sample' });
+  }, [open, save]);
 
-  if (doc && session) {
-    const fixed = settings.pacing === 'fixed';
-    const hasProblem = !fixed && (model.phase === 'error' || job?.phase === 'error');
-    const problem = !hasProblem ? null : (
-      <Problem
-        model={model}
-        job={job}
-        settings={settings}
-        onRetry={() => {
-          service.load(settings.modelId, settings.backend, true);
-          service.restart();
-        }}
-        onModel={(modelId) => setSettings((s) => ({ ...s, modelId }))}
-        onWasm={() => setSettings((s) => ({ ...s, backend: 'wasm' }))}
-        onFixed={() => setSettings((s) => ({ ...s, pacing: 'fixed' }))}
-      />
-    );
+  if (!settings) return null;
+
+  if (view.kind === 'reader') {
+    return <ReaderScreen key={view.doc.meta.id} doc={view.doc} settings={settings} onSettings={setSettings} onExit={() => setView({ kind: 'library' })} />;
+  }
+
+  if (view.kind === 'import') {
     return (
-      <Reader
-        title={doc.title}
-        session={session}
-        settings={settings}
-        onSettings={setSettings}
-        onExit={exit}
-        onNeedWord={needWord}
-        bufferingMessage={bufferingMessage(model, job)}
-        problem={problem}
-        actions={
-          <>
-            <StatusChip model={model} job={job} session={session} fixed={fixed} />
-            <button
-              className="btn ghost"
-              onClick={() => setSettings((s) => ({ ...s, pacing: fixed ? 'surprisal' : 'fixed' }))}
-              title="Switch between surprisal pacing and fixed-rate RSVP"
-            >
-              {fixed ? 'Use surprisal' : 'Use fixed rate'}
-            </button>
-          </>
-        }
+      <ImportPreview
+        draft={view.draft}
+        targetWpm={settings.timing.targetWpm}
+        busy={busy}
+        onCancel={() => setView({ kind: 'library' })}
+        onSave={(doc) => void save(doc)}
       />
     );
   }
 
-  const start = (title: string, raw: string) => {
-    const text = normalizeText(raw);
-    if (text) setDoc({ title, text });
-  };
-
   return (
-    <div className="page">
-      <h1>Surprisal Reader</h1>
-      <p className="lede">Paste some text and read it one word at a time.</p>
-      <textarea
-        className="paste"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder="Paste text here"
-        rows={12}
-      />
-      <div className="row">
-        <button className="btn primary" disabled={!draft.trim()} onClick={() => start('Pasted text', draft)}>
-          Read
-        </button>
-        <button className="btn" onClick={() => start(SAMPLE_TITLE, SAMPLE_TEXT)}>
-          Try the sample
-        </button>
-      </div>
-    </div>
+    <Library
+      entries={entries}
+      targetWpm={settings.timing.targetWpm}
+      message={message}
+      onOpen={(id) => void open(id)}
+      onDelete={(id) => void deleteDoc(id).then(refresh)}
+      onRename={(id, title) => void updateDoc(id, { title }).then(refresh)}
+      onPaste={() => setView({ kind: 'import', draft: { title: '', text: '', source: 'paste' } })}
+      onFile={(f) => void importFile(f)}
+      onSample={() => void openSample()}
+      onSettings={() => setSettingsOpen(true)}
+      overlay={
+        settingsOpen ? (
+          <SettingsPanel
+            settings={settings}
+            onSettings={setSettings}
+            onClose={() => setSettingsOpen(false)}
+            model={model}
+            onClearCache={clearSurprisalCache}
+          />
+        ) : null
+      }
+    />
   );
 }

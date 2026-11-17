@@ -116,3 +116,33 @@ Each entry: what changed, and why.
   error of about 1 ms and a maximum of 2 to 3.5 ms.
 
 - **URL overrides** `?backend=wasm` and `?model=<id>` exist for debugging and the smoke test.
+
+## Milestone 3
+
+- **Storage layout.** One IndexedDB object store through idb-keyval: a small `library` list of
+  document metadata, `text:<id>`, `pos:<id>`, `settings`, and `surprisal:<sha256>:<model>`.
+  Positions are kept apart from the library list because they are written every few seconds
+  while reading.
+
+- **The surprisal cache is keyed by (document hash, model id) only**, as planned. Values scored
+  on WebGPU fp16 and on WASM q8, or with different windows, share a key; they differ by about a
+  bit per word but timing normalizes by the running mean. Partial results are cached too (NaN for
+  unscored words) and reused: reopening a half-scored book scores only the rest. The cache is
+  written at most every 2 s while scoring, when scoring finishes, and when the reader closes.
+  A fully cached document plays without loading the model at all.
+
+- **Deleting a document deletes its caches** unless another library document has identical text.
+  Settings has a "Clear surprisal cache" button.
+
+- **The sample is a library document** (source `sample`), so it behaves like any other text.
+
+- **Settings from URL overrides are never saved**, so a debugging link cannot change stored
+  preferences. "Reset to defaults" keeps the chosen model and backend.
+
+- **Inspector.** Shows two paragraphs either side of the current word (at most 700 words each
+  way), shaded linearly from 0 to 16+ bits. Hover shows surprisal, surprisal after spillover and
+  the full duration with its pause share. Clicking a word jumps there. Keyboard: I opens it,
+  S opens settings (additions to the plan's shortcuts).
+
+- **The paste box became the import preview.** Pasting, text files and (next) PDFs and URLs all
+  go through the same editable preview with live word count and reading-time estimate.

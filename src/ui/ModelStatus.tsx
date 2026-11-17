@@ -33,10 +33,25 @@ export function bufferingMessage(model: ModelStatus, job: JobStatus | null): Rea
 }
 
 /** A compact model and scoring status for the reader's top bar. */
-export function StatusChip({ model, job, session, fixed }: { model: ModelStatus; job: JobStatus | null; session: ReaderSession; fixed: boolean }) {
+export function StatusChip({
+  model,
+  job,
+  session,
+  fixed,
+  modelId,
+}: {
+  model: ModelStatus;
+  job: JobStatus | null;
+  session: ReaderSession;
+  fixed: boolean;
+  modelId: string;
+}) {
   let text: string;
   let title = '';
-  if (model.phase === 'loading') {
+  if (session.complete) {
+    text = modelSpec(modelId).label;
+    title = model.phase === 'ready' ? `${text}: every word scored` : `${text}: every word scored (from the cache)`;
+  } else if (model.phase === 'loading') {
     text = model.total > 0 ? `Model ${Math.floor((model.loaded / model.total) * 100)}%` : 'Loading model';
     title = loadingText(model);
   } else if (model.phase === 'error') {

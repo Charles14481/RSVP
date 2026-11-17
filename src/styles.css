@@ -511,3 +511,403 @@ p {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   word-break: break-word;
 }
+
+/* Panels */
+
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.18);
+  display: flex;
+  justify-content: flex-end;
+  cursor: default;
+}
+
+.panel {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.panel.wide {
+  width: min(720px, 100%);
+}
+
+.panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-head h2 {
+  font-size: 16px;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 28px;
+}
+
+.panel section {
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel section.dim {
+  opacity: 0.55;
+}
+
+.panel h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.panel-foot {
+  padding-top: 16px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.field-top label,
+.field-top .label {
+  font-weight: 500;
+}
+
+.field-top output {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.field-hint {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.field-hint.stale {
+  opacity: 0.6;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented button {
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.segmented button:last-child {
+  border-right: 0;
+}
+
+.segmented button.on {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.check input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+/* Inspector */
+
+.insp-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 12px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.insp-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.insp-legend i {
+  display: inline-block;
+  width: 72px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(to right, rgba(var(--heat), 0), rgba(var(--heat), 0.85));
+  border: 1px solid var(--border);
+}
+
+.insp-readout {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  min-height: 2.4em;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insp-readout strong {
+  font-family: var(--read-font);
+  font-size: 16px;
+}
+
+.insp-passage {
+  font-family: var(--read-font);
+  font-size: 17px;
+  line-height: 1.9;
+}
+
+.insp-passage p {
+  margin: 0 0 0.9em;
+}
+
+.insp-word {
+  border-radius: 3px;
+  padding: 1px 1px;
+  cursor: pointer;
+}
+
+.insp-word.hot {
+  color: #fff;
+}
+
+:root[data-theme='dark'] .insp-word.hot {
+  color: #1a0c08;
+}
+
+.insp-word.unscored {
+  color: var(--faint);
+  text-decoration: underline dotted;
+}
+
+.insp-word.current {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.insp-word:hover {
+  outline: 1px solid var(--text);
+}
+
+/* Library */
+
+.lib-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.import-row {
+  margin-bottom: 22px;
+}
+
+.banner {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.link {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.doc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 14px 4px 12px;
+  cursor: pointer;
+}
+
+.doc-main:hover .doc-title {
+  color: var(--accent);
+}
+
+.doc-title {
+  font-weight: 600;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.doc-bar {
+  display: block;
+  height: 2px;
+  margin-top: 6px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  max-width: 240px;
+}
+
+.doc-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.doc-actions {
+  display: flex;
+  flex: none;
+}
+
+.rename,
+.title-field input {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.rename {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* Import preview */
+
+.import .row.spread,
+.row.spread {
+  justify-content: space-between;
+}
+
+.title-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 18px 0 12px;
+}
+
+.title-field .label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.title-field input {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.paste.tall {
+  min-height: 55vh;
+}
+
+.notes {
+  margin: 0 0 12px;
+  padding: 10px 14px 10px 30px;
+  font-size: 13.5px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+  .doc-actions .btn {
+    padding: 6px 8px;
+  }
+}
