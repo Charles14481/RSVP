@@ -402,10 +402,11 @@ p {
   color: var(--faint);
 }
 
+/* Kept quiet so it does not pull the eye away from the word being flashed. */
 .ctx-word.live {
-  color: var(--text);
-  background: var(--surface-2);
-  box-shadow: 0 0 0 2px var(--surface-2);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface-2) 55%, transparent);
 }
 
 .ctx-para.active {
