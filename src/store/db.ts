@@ -8,13 +8,14 @@ import { mergeSettings, type Settings } from '../settings';
  *   text:<id>            string             the normalized document text
  *   pos:<id>             number             reading position (word index)
  *   settings             Settings
+ *   seeded               true               the default documents have been added
  *   surprisal:<hash>:<model>  Float32Array  per-word bits, NaN = not scored yet
  *
  * Positions live apart from the library so the frequent position writes do
  * not rewrite the whole list.
  */
 
-export type DocSource = 'paste' | 'file' | 'pdf' | 'url' | 'sample';
+export type DocSource = 'paste' | 'file' | 'pdf' | 'url' | 'sample' | 'guide';
 
 export interface DocMeta {
   id: string;
@@ -46,6 +47,7 @@ export function resetStoreForTests(): void {
 
 const LIBRARY = 'library';
 const SETTINGS = 'settings';
+const SEEDED = 'seeded';
 const textKey = (id: string) => `text:${id}`;
 const posKey = (id: string) => `pos:${id}`;
 const surprisalKey = (hash: string, modelId: string) => `surprisal:${hash}:${modelId}`;
@@ -70,8 +72,18 @@ export async function listDocs(): Promise<LibraryEntry[]> {
     .sort((a, b) => b.openedAt - a.openedAt);
 }
 
-export async function addDoc(input: { title: string; text: string; words: number; source: DocSource; origin?: string }): Promise<DocMeta> {
-  const now = Date.now();
+export interface NewDoc {
+  title: string;
+  text: string;
+  words: number;
+  source: DocSource;
+  origin?: string;
+  /** Defaults to now; sets where the document sorts in the library. */
+  openedAt?: number;
+}
+
+export async function addDoc(input: NewDoc): Promise<DocMeta> {
+  const now = input.openedAt ?? Date.now();
   const meta: DocMeta = {
     id: newId(),
     title: input.title.trim() || 'Untitled',
@@ -91,6 +103,35 @@ export async function addDoc(input: { title: string; text: string; words: number
   );
   await update<DocMeta[]>(LIBRARY, (list) => [...(list ?? []), meta], db());
   return meta;
+}
+
+/**
+ * Add the default documents the first time the library is opened, in the
+ * given order, the first sorting at the top. This happens once per database:
+ * claiming the flag is a single transaction, so two tabs (or a re-run effect)
+ * cannot both add them, and a deleted default stays deleted. A default whose
+ * source is already in the library is skipped.
+ */
+export async function seedLibrary(docs: readonly Omit<NewDoc, 'openedAt'>[]): Promise<number> {
+  let claimed = false;
+  await update<boolean>(
+    SEEDED,
+    (done) => {
+      claimed = !done;
+      return true;
+    },
+    db(),
+  );
+  if (!claimed) return 0;
+  const present = new Set(((await get<DocMeta[]>(LIBRARY, db())) ?? []).map((m) => m.source));
+  const now = Date.now();
+  let added = 0;
+  for (let i = 0; i < docs.length; i++) {
+    if (present.has(docs[i].source)) continue;
+    await addDoc({ ...docs[i], openedAt: now - i });
+    added++;
+  }
+  return added;
 }
 
 export async function getDoc(id: string): Promise<{ meta: DocMeta; text: string; position: number } | null> {

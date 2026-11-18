@@ -57,7 +57,7 @@ try {
   });
   console.log('caches:', shell);
 
-  await page.getByText('read a short introduction').click();
+  await page.locator('.doc-title', { hasText: 'How this reader paces itself' }).click();
   console.log(`online: scored in ${await waitScored(page, 'online')} ms`);
   await page.keyboard.press('Escape');
   await page.locator('.doc-title').first().waitFor();

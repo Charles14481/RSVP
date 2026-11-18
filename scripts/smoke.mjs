@@ -73,10 +73,14 @@ try {
   }));
   console.log('environment', env);
   check(env.isolated, 'page is not cross-origin isolated');
-  await shot(page, '0-library-empty');
+  await page.locator('.doc-title').first().waitFor();
+  const titles = await page.locator('.doc-title').allTextContents();
+  console.log('  new library:', titles);
+  check(titles.length === 2 && /^Start here/.test(titles[0]), 'a new library does not start with the guide and the sample');
+  await shot(page, '0-library-new');
 
-  console.log('1. open the sample from the empty library');
-  await page.getByText('read a short introduction').click();
+  console.log('1. open the sample from the new library');
+  await page.locator('.doc-title', { hasText: 'How this reader paces itself' }).click();
   await waitForScoring(page);
   console.log('  backend:', await page.locator('.chip').first().getAttribute('title'));
   await shot(page, '1-ready');

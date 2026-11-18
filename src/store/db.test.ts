@@ -13,6 +13,7 @@ import {
   savePosition,
   saveSettings,
   saveSurprisal,
+  seedLibrary,
   sha256Hex,
   updateDoc,
 } from './db';
@@ -40,6 +41,27 @@ describe('store', () => {
     const doc = await getDoc(a.id);
     expect(doc).toMatchObject({ text: 'One two.', position: 0, meta: { id: a.id } });
     expect(await getDoc('missing')).toBeNull();
+  });
+
+  it('seeds the default documents once, top first, and never brings them back', async () => {
+    const defaults = [
+      { title: 'Guide', text: 'Read me.', words: 2, source: 'guide' as const },
+      { title: 'Sample', text: 'Me too.', words: 2, source: 'sample' as const },
+    ];
+    const [first, second] = await Promise.all([seedLibrary(defaults), seedLibrary(defaults)]);
+    expect(first + second).toBe(2);
+    expect((await listDocs()).map((d) => d.title)).toEqual(['Guide', 'Sample']);
+
+    const guide = (await listDocs())[0];
+    await deleteDoc(guide.id);
+    expect(await seedLibrary(defaults)).toBe(0);
+    expect((await listDocs()).map((d) => d.title)).toEqual(['Sample']);
+  });
+
+  it('skips a default that an existing library already has', async () => {
+    await addDoc({ title: 'Old sample', text: 'Me too.', words: 2, source: 'sample' });
+    expect(await seedLibrary([{ title: 'Guide', text: 'Read me.', words: 2, source: 'guide' }, { title: 'Sample', text: 'Me too.', words: 2, source: 'sample' }])).toBe(1);
+    expect((await listDocs()).map((d) => d.source).sort()).toEqual(['guide', 'sample']);
   });
 
   it('persists positions and metadata updates', async () => {

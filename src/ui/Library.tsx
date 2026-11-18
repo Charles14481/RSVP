@@ -11,6 +11,7 @@ interface Props {
   onPaste: () => void;
   onFile: (file: File) => void;
   onUrl?: () => void;
+  onGuide: () => void;
   onSample: () => void;
   onSettings: () => void;
   /** Shown above the list (import errors). */
@@ -72,9 +73,13 @@ export function Library(props: Props) {
         <div className="empty">
           <p>Your library is empty.</p>
           <p className="field-hint">
-            Paste an article or open a file to begin, or{' '}
+            Paste an article or open a file to begin. You can also read{' '}
+            <button className="link" onClick={props.onGuide}>
+              the guide to using this reader
+            </button>{' '}
+            or{' '}
             <button className="link" onClick={props.onSample}>
-              read a short introduction
+              a short introduction
             </button>{' '}
             to how the pacing works.
           </p>

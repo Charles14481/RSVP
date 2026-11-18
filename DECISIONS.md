@@ -135,6 +135,9 @@ Each entry: what changed, and why.
   Settings has a "Clear surprisal cache" button.
 
 - **The sample is a library document** (source `sample`), so it behaves like any other text.
+  A getting-started guide (source `guide`, `src/ui/guide.ts`) joins it. Both are added once per
+  database, when the library is first opened. Deleting them is permanent, but the empty library
+  links to both. The sample text is unchanged because the mean seed was measured on it.
 
 - **Settings from URL overrides are never saved**, so a debugging link cannot change stored
   preferences. "Reset to defaults" keeps the chosen model and backend.

@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { normalizeText, segment } from './segment/segment';
 import { applyUrlOverrides, DEFAULT_SETTINGS, resolveTheme, type Settings } from './settings';
-import { addDoc, clearSurprisalCache, deleteDoc, getDoc, listDocs, loadSettings, saveSettings, updateDoc, type LibraryEntry } from './store/db';
+import {
+  addDoc,
+  clearSurprisalCache,
+  deleteDoc,
+  getDoc,
+  listDocs,
+  loadSettings,
+  saveSettings,
+  seedLibrary,
+  updateDoc,
+  type DocSource,
+  type LibraryEntry,
+} from './store/db';
 import { surprisalService } from './surprisal/client';
+import { GUIDE_TEXT, GUIDE_TITLE } from './ui/guide';
 import { ImportPreview, type ImportDraft } from './ui/ImportPreview';
 import { Library } from './ui/Library';
 import { ReaderScreen, type OpenDoc } from './ui/ReaderScreen';
@@ -11,6 +24,17 @@ import { SettingsPanel } from './ui/SettingsPanel';
 import { UrlImport } from './ui/UrlImport';
 
 type View = { kind: 'library' } | { kind: 'import'; draft: ImportDraft } | { kind: 'reader'; doc: OpenDoc };
+
+/** Added to a new library, top first. Either can be brought back from the empty library. */
+const DEFAULT_DOCS = [
+  { title: GUIDE_TITLE, raw: GUIDE_TEXT, source: 'guide' },
+  { title: SAMPLE_TITLE, raw: SAMPLE_TEXT, source: 'sample' },
+] as const satisfies readonly { title: string; raw: string; source: DocSource }[];
+
+function defaultDoc(d: (typeof DEFAULT_DOCS)[number]) {
+  const text = normalizeText(d.raw);
+  return { title: d.title, text, words: segment(text).length, source: d.source };
+}
 
 /** URL overrides are for this page load only and are never saved. */
 const HAS_OVERRIDES = /[?&](backend|model)=/.test(location.search);
@@ -59,7 +83,9 @@ export function App() {
   }, [theme]);
 
   const refresh = useCallback(() => {
-    listDocs()
+    seedLibrary(DEFAULT_DOCS.map(defaultDoc))
+      .catch(() => 0)
+      .then(listDocs)
       .then(setEntries)
       .catch((e) => {
         setEntries([]);
@@ -131,12 +157,14 @@ export function App() {
     }
   }, []);
 
-  const openSample = useCallback(async () => {
-    const existing = (await listDocs()).find((d) => d.source === 'sample');
-    if (existing) return open(existing.id);
-    const text = normalizeText(SAMPLE_TEXT);
-    await save({ title: SAMPLE_TITLE, text, words: segment(text).length, source: 'sample' });
-  }, [open, save]);
+  const openDefault = useCallback(
+    async (source: 'guide' | 'sample') => {
+      const existing = (await listDocs()).find((d) => d.source === source);
+      if (existing) return open(existing.id);
+      await save(defaultDoc(DEFAULT_DOCS.find((d) => d.source === source)!));
+    },
+    [open, save],
+  );
 
   if (!settings) return null;
 
@@ -186,7 +214,8 @@ export function App() {
           />
         ) : null
       }
-      onSample={() => void openSample()}
+      onGuide={() => void openDefault('guide')}
+      onSample={() => void openDefault('sample')}
       onSettings={() => setSettingsOpen(true)}
       overlay={
         settingsOpen ? (

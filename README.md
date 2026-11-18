@@ -45,7 +45,9 @@ very next word.
 - **Inspector (I):** the current passage with each word shaded by surprisal, and its duration on
   hover. Use it to tune the settings and to spot alignment problems.
 - **Library:** documents, reading positions, settings and surprisal scores are kept in IndexedDB.
-  A fully scored document reopens instantly without loading the model.
+  A fully scored document reopens instantly without loading the model. A new library starts with
+  two short texts meant to be read in the reader: a guide to the controls and an introduction to
+  the pacing.
 - **Offline:** the built app installs a service worker and can be installed as an app. Once the
   model has been downloaded, reading and scoring new text work without a network. Only URL import
   needs a connection.
