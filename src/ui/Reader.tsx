@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { WordDisplay } from '../player/display';
+import { groupEnd, groupText } from '../player/groups';
 import { Scheduler, type PlayState } from '../player/scheduler';
 import type { ReaderSession } from '../player/session';
 import { nextSentenceStart, paragraphStart, previousSentenceStart, sentenceStart } from '../segment/nav';
@@ -47,6 +48,8 @@ export function Reader(props: ReaderProps) {
   const schedulerRef = useRef<Scheduler | null>(null);
   const displayRef = useRef<WordDisplay | null>(null);
   const lastLabelAt = useRef(0);
+  /** Set by the text view while it follows playback: words [i, end) are on screen. */
+  const followRef = useRef<((i: number, end: number) => void) | null>(null);
   /** True after an explicit jump while paused: resume exactly there, not at the sentence start. */
   const exactResume = useRef(false);
 
@@ -99,18 +102,29 @@ export function Reader(props: ReaderProps) {
     const stage = stageRef.current;
     if (!stage || !wordRef.current || !leftRef.current || !pivotRef.current || !rightRef.current) return;
     const display = new WordDisplay(stage, wordRef.current, leftRef.current, pivotRef.current, rightRef.current);
+    // Several words can be shown at once; the group is read from the settings each time.
+    const end = (i: number) => groupEnd(words, i, settingsRef.current.wordsPerFlash);
     const scheduler = new Scheduler({
       now: () => performance.now(),
       requestFrame: (cb) => requestAnimationFrame(cb),
       cancelFrame: (h) => cancelAnimationFrame(h),
       wordCount: () => words.length,
+      // A group stays up for the sum of its words' durations, so the pace is the same at any size.
       duration: (i) => {
-        const d = wordDuration(words, session.surprisal, i, pacingRef.current);
-        return Number.isNaN(d) ? null : d;
+        let total = 0;
+        for (let k = i, e = end(i); k < e; k++) {
+          const d = wordDuration(words, session.surprisal, k, pacingRef.current);
+          if (Number.isNaN(d)) return null;
+          total += d;
+        }
+        return total;
       },
+      next: end,
       show: (i) => {
-        display.show(words[i].text);
+        const e = end(i);
+        display.show(groupText(words, i, e));
         writeProgress(i, false);
+        followRef.current?.(i, e);
       },
       onState: (s) => {
         setPlayState(s);
@@ -151,6 +165,12 @@ export function Reader(props: ReaderProps) {
   useEffect(() => {
     displayRef.current?.measure();
   }, [settings.fontSize]);
+
+  // A new group size shows the new group straight away when paused.
+  useEffect(() => {
+    const s = schedulerRef.current;
+    if (s && !s.running) s.seek(s.index);
+  }, [settings.wordsPerFlash]);
 
   // Keep the time-left label honest when the pace changes while paused.
   useEffect(() => {
@@ -237,6 +257,13 @@ export function Reader(props: ReaderProps) {
         case 'R':
           jump(paragraphStart(words, s.index));
           break;
+        case '1':
+        case '2':
+        case '3': {
+          const n = Number(e.key);
+          onSettings((st) => ({ ...st, wordsPerFlash: n }));
+          break;
+        }
         case 'Escape':
           onExit();
           break;
@@ -254,7 +281,7 @@ export function Reader(props: ReaderProps) {
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [words, toggle, jump, changeWpm, onExit, onCloseOverlay]);
+  }, [words, toggle, jump, changeWpm, onExit, onCloseOverlay, onSettings]);
 
   // Opening a panel pauses playback.
   useEffect(() => {
@@ -269,11 +296,13 @@ export function Reader(props: ReaderProps) {
 
   const running = playState === 'playing' || playState === 'buffering';
   const touch = useMemo(() => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches, []);
-  const showContext = !running && !props.problem;
+  // Optionally the text stays up, dimmed, while playing.
+  const liveText = running && settings.textWhilePlaying;
+  const showContext = (!running || liveText) && !props.problem;
   const wpm = settings.timing.targetWpm;
 
   return (
-    <div className="reader" data-state={playState}>
+    <div className="reader" data-state={playState} data-text={liveText ? 'live' : undefined}>
       <header className="reader-bar">
         <button className="btn ghost back" onClick={onExit} title="Back to library (Esc)" aria-label="Back to library">
           <span aria-hidden="true">←</span>
@@ -299,8 +328,17 @@ export function Reader(props: ReaderProps) {
         {props.actions}
       </header>
 
-      <main className="reader-main" onClick={toggle}>
-        <div className="stage" ref={stageRef} style={{ fontSize: `min(${settings.fontSize}px, 12vw)` }}>
+      {/* A click anywhere pauses; only the word itself (or Space, or Play) starts reading. */}
+      <main className="reader-main" onClick={pause}>
+        <div
+          className="stage"
+          ref={stageRef}
+          style={{ fontSize: `min(${settings.fontSize}px, 12vw)` }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle();
+          }}
+        >
           <div className="stage-guide" aria-hidden="true" />
           <div className="rsvp-word" ref={wordRef} aria-live="off">
             <span ref={leftRef} />
@@ -323,7 +361,7 @@ export function Reader(props: ReaderProps) {
 
         {showContext && (
           <>
-            <div className="hint">
+            <div className="hint" aria-hidden={running}>
               {playState === 'ended'
                 ? touch
                   ? 'Finished. Tap to read again.'
@@ -332,7 +370,7 @@ export function Reader(props: ReaderProps) {
                   ? 'Tap the word to read · tap the text to jump'
                   : 'Space to read · click any word to jump · ? for shortcuts'}
             </div>
-            <ContextView words={words} index={index} onPick={jump} />
+            <ContextView words={words} index={index} onPick={jump} live={liveText} followRef={followRef} />
           </>
         )}
       </main>

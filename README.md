@@ -39,11 +39,21 @@ very next word.
   by the browser. Scoring runs in a background worker and streams ahead of you. Playback starts as
   soon as the first window is scored. If you catch up with the scorer, the reader shows a brief
   buffering state; it never falls back silently to fixed timing.
-- **Pausing:** when paused, the reader shows the surrounding paragraph with your place marked.
-  Click any word to continue from there. Re-reading is the thing RSVP takes away, so it is one
-  click. By default, playback resumes from the start of the sentence.
-- **Inspector (I):** the current passage with each word shaded by surprisal, and its duration on
-  hover. Use it to tune the settings and to spot alignment problems.
+- **Pausing:** when paused, the reader shows the surrounding text with your place marked. It
+  scrolls, and more loads as you near either end. Click any word to continue from there.
+  Re-reading is the thing RSVP takes away, so it is one click. By default, playback resumes from
+  the start of the sentence. With **Show the text while playing** (Settings, Display), the text
+  stays up while playing, dimmed, with the word on screen marked and kept in view.
+- **Several words at a time:** Settings → Pace → Words at a time (or keys 1, 2, 3) shows short
+  phrases instead of single words. A group ends at any punctuation that earns a pause and stays
+  within a width limit; it stays up for the sum of its words' surprisal-paced durations, so the
+  effective rate is the same at every size.
+- **Starting and stopping:** Space, the Play button or a click on the word starts reading. A click
+  anywhere pauses, but a click beside the text does not start reading.
+- **Inspector (I):** the text with each word shaded by surprisal, and its duration on hover.
+  Click a word to see the model's ten most likely next tokens at that point and how the actual
+  word ranked. By default it scrolls through the whole text. Use it to tune the settings and to
+  spot alignment problems.
 - **Library:** documents, reading positions, settings and surprisal scores are kept in IndexedDB.
   A fully scored document reopens instantly without loading the model. A new library starts with
   two short texts meant to be read in the reader: a guide to the controls and an introduction to
@@ -63,10 +73,11 @@ very next word.
 | ← / → | Previous / next sentence |
 | ↑ / ↓ | ±25 WPM |
 | R | Restart the paragraph |
+| 1 / 2 / 3 | Words shown at a time |
 | I / S / ? | Inspector / settings / shortcut list |
 | Esc | Close a panel, or back to the library |
 
-On a touch screen, tap the word to play or pause. The ‹ and › buttons step by sentence.
+On a touch screen, tap the word to play or pause; a tap elsewhere only pauses. The ‹ and › buttons step by sentence.
 
 ## Running it
 

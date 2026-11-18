@@ -8,8 +8,10 @@ export interface SchedulerHost {
   wordCount(): number;
   /** Display duration of word i in ms, or null if it cannot be timed yet. */
   duration(i: number): number | null;
-  /** Put word i on screen. Called outside React render. */
+  /** Put word i on screen (with the words after it, when several are shown at once). Called outside React render. */
   show(i: number): void;
+  /** Index shown after the unit starting at i; i + 1 when one word is shown at a time. */
+  next?(i: number): number;
   onState?(state: PlayState): void;
 }
 
@@ -146,7 +148,7 @@ export class Scheduler {
         this.setState('playing');
       }
     } else if (this.st === 'playing' && t >= this.deadline - this.frameMs / 2) {
-      const next = this.idx + 1;
+      const next = Math.max(this.idx + 1, this.host.next?.(this.idx) ?? this.idx + 1);
       if (next >= this.host.wordCount()) {
         this.setState('ended');
         return;

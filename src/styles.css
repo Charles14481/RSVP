@@ -117,6 +117,16 @@ p {
   line-height: 1.1;
 }
 
+.btn.small {
+  padding: 3px 9px;
+  font-size: 13px;
+}
+
+.btn.square.small {
+  padding: 1px 7px;
+  font-size: 16px;
+}
+
 .btn.danger:hover:not(:disabled) {
   color: var(--accent);
 }
@@ -144,6 +154,11 @@ p {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.row.tight {
+  gap: 2px;
+  flex-wrap: nowrap;
 }
 
 .paste {
@@ -224,7 +239,6 @@ p {
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: pointer;
   padding: 0 16px;
 }
 
@@ -235,10 +249,17 @@ p {
   height: 3.4em;
   margin-top: clamp(24px, 16vh, 180px);
   transition: margin-top 0.2s;
+  cursor: pointer;
 }
 
-.reader:not([data-state='playing']):not([data-state='buffering']) .stage {
+.reader:not([data-state='playing']):not([data-state='buffering']) .stage,
+.reader[data-text='live'] .stage {
   margin-top: clamp(12px, 5vh, 56px);
+}
+
+/* While playing, the hint keeps its space so the text does not shift. */
+.reader[data-text='live'] .hint {
+  visibility: hidden;
 }
 
 /* Hairlines above and below the word with a notch marking the pivot column. */
@@ -315,6 +336,14 @@ p {
   animation: spin 0.8s linear infinite;
 }
 
+.spinner.inline {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -358,11 +387,25 @@ p {
   line-height: 1.65;
   cursor: text;
   scrollbar-width: thin;
+  /* ContextView restores the scroll position itself when it adds text above. */
+  overflow-anchor: none;
 }
 
 .ctx-para {
   margin: 0 0 0.9em;
+  color: var(--muted);
+  transition: color 0.3s;
+}
+
+/* Playing with the text shown: dimmed, the word on screen marked. */
+.context.live .ctx-para {
   color: var(--faint);
+}
+
+.ctx-word.live {
+  color: var(--text);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 2px var(--surface-2);
 }
 
 .ctx-para.active {
@@ -687,17 +730,22 @@ p {
   border: 1px solid var(--border);
 }
 
-.insp-readout {
+/* The readout and predictions stay in view while the passage scrolls under them. */
+.insp-sticky {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: var(--surface);
+  padding-bottom: 8px;
+}
+
+.insp-readout {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
   align-items: baseline;
   min-height: 2.4em;
   padding: 8px 10px;
-  margin-bottom: 8px;
   background: var(--surface-2);
   border-radius: 8px;
   font-size: 13.5px;
@@ -736,6 +784,77 @@ p {
 .insp-word.unscored {
   color: var(--faint);
   text-decoration: underline dotted;
+}
+
+.insp-predict {
+  margin-top: 8px;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+
+.insp-predict-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.insp-predict-head strong {
+  font-family: var(--read-font);
+  font-size: 16px;
+}
+
+.insp-guesses {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insp-guesses li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.insp-guesses .g-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(var(--heat), 0.14);
+  pointer-events: none;
+}
+
+.insp-guesses .g-text {
+  position: relative;
+  font-family: var(--read-font);
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.insp-guesses .g-p {
+  position: relative;
+  color: var(--muted);
+}
+
+.insp-guesses li.hit {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.insp-word.picked {
+  box-shadow: 0 0 0 2px var(--text);
 }
 
 .insp-word.current {

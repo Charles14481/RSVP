@@ -88,6 +88,52 @@ export function rowLogProb(data: ArrayLike<number>, offset: number, V: number, t
   return data[offset + target] - max - Math.log(sum);
 }
 
+/**
+ * The k most probable token ids under softmax(row), most probable first, and
+ * the probability and 1-based rank of `target`. The row is data[offset .. offset + V).
+ */
+export function topPredictions(
+  data: ArrayLike<number>,
+  offset: number,
+  V: number,
+  k: number,
+  target: number,
+): { top: { id: number; p: number }[]; target: { p: number; rank: number } } {
+  let max = -Infinity;
+  for (let i = 0; i < V; i++) {
+    const v = data[offset + i];
+    if (v > max) max = v;
+  }
+  let sum = 0;
+  for (let i = 0; i < V; i++) sum += Math.exp(data[offset + i] - max);
+  // Insertion into a sorted list of at most k: cheap for small k over a 50k vocabulary.
+  const ids: number[] = [];
+  const vals: number[] = [];
+  for (let i = 0; i < V && k > 0; i++) {
+    const v = data[offset + i];
+    if (ids.length === k && v <= vals[k - 1]) continue;
+    if (ids.length < k) {
+      ids.push(0);
+      vals.push(0);
+    }
+    let j = ids.length - 1;
+    while (j > 0 && vals[j - 1] < v) {
+      ids[j] = ids[j - 1];
+      vals[j] = vals[j - 1];
+      j--;
+    }
+    ids[j] = i;
+    vals[j] = v;
+  }
+  const tv = data[offset + target];
+  let rank = 1;
+  for (let i = 0; i < V; i++) if (data[offset + i] > tv) rank++;
+  return {
+    top: ids.map((id, n) => ({ id, p: Math.exp(vals[n] - max) / sum })),
+    target: { p: Math.exp(tv - max) / sum, rank },
+  };
+}
+
 /** Copy one row of raw float16 bits into a float32 scratch buffer. */
 export function decodeHalfRow(raw: Uint16Array, offset: number, V: number, out: Float32Array): Float32Array {
   const table = halfTable();

@@ -116,6 +116,17 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
           hint="Fixed rate is classic RSVP: every word gets one beat, plus punctuation pauses."
           onChange={(v) => set({ pacing: v })}
         />
+        <Choice
+          label="Words at a time"
+          value={settings.wordsPerFlash}
+          options={[
+            { value: 1, label: '1' },
+            { value: 2, label: '2' },
+            { value: 3, label: '3' },
+          ]}
+          hint="Short phrases shown together (keys 1, 2, 3). A group ends at punctuation and stays up for the total time of its words, so the pace does not change."
+          onChange={(v) => set({ wordsPerFlash: v })}
+        />
         <Slider
           label="Surprisal strength"
           value={t.strength}
@@ -255,6 +266,20 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
           ]}
           onChange={(v) => set({ theme: v })}
         />
+        <label className="check">
+          <input type="checkbox" checked={settings.textWhilePlaying} onChange={(e) => set({ textWhilePlaying: e.target.checked })} />
+          <span>
+            Show the text while playing
+            <span className="field-hint block">The text stays below the word, dimmed, with the current word marked.</span>
+          </span>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={settings.inspectorFullText} onChange={(e) => set({ inspectorFullText: e.target.checked })} />
+          <span>
+            Inspector shows the whole text
+            <span className="field-hint block">Scroll through the document in the inspector. Off shows two paragraphs either side.</span>
+          </span>
+        </label>
       </section>
 
       <div className="row panel-foot">

@@ -78,6 +78,11 @@ const CLAUSE_END = new RegExp(`(?:[,;:]|--|[\u2013\u2014])${CLOSERS}$`);
 const DASH_ONLY = /^[-\u2013\u2014]+$/;
 
 /** Step 5: pause multiplier of T for the punctuation this word ends with. */
+/** Whether a word ends a clause, sentence or paragraph (anything that earns a pause). */
+export function endsPhrase(word: Word): boolean {
+  return word.paragraphEnd || word.sentenceEnd || CLAUSE_END.test(word.text) || DASH_ONLY.test(word.text);
+}
+
 export function pauseFactor(word: Word, st: TimingSettings): number {
   if (word.paragraphEnd) return st.pauseParagraph;
   if (word.sentenceEnd) return st.pauseSentence;

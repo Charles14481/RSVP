@@ -89,6 +89,14 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
   );
   const needWord = useCallback((i: number) => service.prioritize(i), [service]);
   const closePanel = useCallback(() => setPanel(null), []);
+  // Predictions need the model even when every word is already cached.
+  const predict = useCallback(
+    (i: number) => {
+      service.load(modelId, backend);
+      return service.predict(session.text, i, { window: window ? { window } : undefined });
+    },
+    [service, session, modelId, backend, window],
+  );
 
   const fixed = settings.pacing === 'fixed';
   const pacing: Pacing = useMemo(
@@ -113,7 +121,16 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
         )
       : panel === 'inspector'
         ? ({ index, jump }: { index: number; jump: (i: number) => void }) => (
-            <Inspector session={session} pacing={pacing} index={index} onJump={jump} onClose={closePanel} modelLabel={spec.label} />
+            <Inspector
+              session={session}
+              pacing={pacing}
+              index={index}
+              fullText={settings.inspectorFullText}
+              predict={predict}
+              onJump={jump}
+              onClose={closePanel}
+              modelLabel={spec.label}
+            />
           )
         : panel === 'shortcuts'
           ? () => <Shortcuts onClose={closePanel} />

@@ -1,6 +1,6 @@
 import type { ReaderSession } from '../player/session';
 import type { Backend, BackendPreference, WindowConfig } from './models';
-import type { FromWorker, JobErrorKind, ToWorker } from './protocol';
+import type { FromWorker, JobErrorKind, Prediction, ToWorker } from './protocol';
 
 export type ModelStatus =
   | { phase: 'idle' }
@@ -36,6 +36,8 @@ export class SurprisalService {
   private current: { id: number; session: ReaderSession; request: ScoreRequest } | null = null;
   private wanted: { modelId: string; backend: BackendPreference } | null = null;
   private snapshot: { model: ModelStatus; job: JobStatus | null } = { model: { phase: 'idle' }, job: null };
+  private nextReqId = 1;
+  private predictions = new Map<number, { resolve: (p: Prediction) => void; reject: (e: Error) => void }>();
 
   get model(): ModelStatus {
     return this.snapshot.model;
@@ -95,6 +97,18 @@ export class SurprisalService {
     }
   }
 
+  /**
+   * The model's top k next tokens just before display word `word` of `text`.
+   * Waits for the model if it is still loading; call load() first.
+   */
+  predict(text: string, word: number, options: { k?: number; window?: Partial<WindowConfig> } = {}): Promise<Prediction> {
+    const reqId = this.nextReqId++;
+    return new Promise((resolve, reject) => {
+      this.predictions.set(reqId, { resolve, reject });
+      this.send({ type: 'predict', reqId, text, word, k: options.k ?? 10, window: options.window });
+    });
+  }
+
   cancel(): void {
     if (this.current) this.send({ type: 'cancel', jobId: this.current.id });
     this.current = null;
@@ -114,6 +128,8 @@ export class SurprisalService {
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.onMessage(e.data);
       this.worker.onerror = (e) => {
         const modelId = this.wanted?.modelId ?? '';
+        for (const p of this.predictions.values()) p.reject(new Error('The scoring worker crashed.'));
+        this.predictions.clear();
         this.set({ model: { phase: 'error', modelId, message: e.message || 'The scoring worker crashed.' } });
       };
     }
@@ -142,6 +158,14 @@ export class SurprisalService {
           this.set({ model: { phase: 'error', modelId: msg.modelId, message: msg.message } });
         }
         return;
+      case 'prediction':
+      case 'prediction-error': {
+        const p = this.predictions.get(msg.reqId);
+        this.predictions.delete(msg.reqId);
+        if (msg.type === 'prediction') p?.resolve(msg.prediction);
+        else p?.reject(new Error(msg.message));
+        return;
+      }
     }
 
     const cur = this.current;

@@ -3,7 +3,7 @@ import { pivotOffset, splitAtPivot } from './orp';
 import { Scheduler, type PlayState, type SchedulerHost } from './scheduler';
 
 /** A fake display running at a fixed refresh rate with an injectable clock. */
-function harness(durations: (number | null)[], frameMs = 1000 / 60) {
+function harness(durations: (number | null)[], frameMs = 1000 / 60, next?: (i: number) => number) {
   let now = 1000.3;
   let pending: (() => void) | null = null;
   const onsets: { i: number; t: number }[] = [];
@@ -21,6 +21,7 @@ function harness(durations: (number | null)[], frameMs = 1000 / 60) {
     duration: (i) => durations[i],
     show: (i) => onsets.push({ i, t: now }),
     onState: (s) => states.push(s),
+    ...(next ? { next } : {}),
   };
   const scheduler = new Scheduler(host);
   /** Advance by n frames, optionally with jitter in frame timing. */
@@ -194,5 +195,25 @@ describe('ORP pivot', () => {
   it('handles punctuation-only and empty strings', () => {
     expect(splitAtPivot('\u2014')).toEqual({ left: '', pivot: '\u2014', right: '' });
     expect(splitAtPivot('')).toEqual({ left: '', pivot: '', right: '' });
+  });
+});
+
+describe('Scheduler with groups', () => {
+  it('steps by the host-provided next index and shows each group once', () => {
+    const durations = [100, 100, 100, 100, 100, 100, 100];
+    // Groups [0, 3), [3, 5), [5, 7).
+    const ends = [3, 3, 3, 5, 5, 7, 7];
+    const h = harness(durations, undefined, (i) => ends[i]);
+    h.scheduler.play();
+    h.run(1000);
+    expect(h.onsets.map((o) => o.i)).toEqual([0, 3, 5]);
+    expect(h.scheduler.state).toBe('ended');
+  });
+
+  it('never steps backwards or in place, whatever next returns', () => {
+    const h = harness([100, 100, 100], undefined, () => 0);
+    h.scheduler.play();
+    h.run(1000);
+    expect(h.onsets.map((o) => o.i)).toEqual([0, 1, 2]);
   });
 });

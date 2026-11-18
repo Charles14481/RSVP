@@ -14,12 +14,37 @@ export type ToWorker =
       /** Boundary-corrected word surprisal. */
       boundary?: boolean;
     }
+  | {
+      type: 'predict';
+      reqId: number;
+      /** Normalized document text; the worker keeps the last one aligned. */
+      text: string;
+      /** Display word whose preceding context is asked about. */
+      word: number;
+      k: number;
+      window?: Partial<WindowConfig>;
+    }
   | { type: 'priority'; jobId: number; word: number }
   | { type: 'cancel'; jobId: number };
 
 export interface WireRun {
   start: number;
   bits: Float32Array;
+}
+
+export interface Guess {
+  id: number;
+  /** The token as decoded, with its leading space if it has one. */
+  text: string;
+  p: number;
+}
+
+/** What the model expected just before a word: its top next tokens, and how the actual first token ranked. */
+export interface Prediction {
+  guesses: Guess[];
+  actual: Guess & { rank: number };
+  /** Tokens of context the prediction saw. */
+  context: number;
 }
 
 export type JobErrorKind = 'alignment' | 'inference' | 'other';
@@ -31,6 +56,8 @@ export type FromWorker =
   | { type: 'job-started'; jobId: number; words: number; tokens: number }
   | { type: 'scores'; jobId: number; runs: WireRun[] }
   | { type: 'job-done'; jobId: number; ms: number }
+  | { type: 'prediction'; reqId: number; prediction: Prediction }
+  | { type: 'prediction-error'; reqId: number; message: string }
   | {
       type: 'job-error';
       jobId: number;

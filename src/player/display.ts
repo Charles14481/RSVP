@@ -1,4 +1,4 @@
-import { splitAtPivot } from './orp';
+import { splitPhrase } from './orp';
 
 /**
  * Writes words straight to the DOM, outside React render, holding the centre
@@ -35,7 +35,7 @@ export class WordDisplay {
 
   show(text: string): void {
     this.current = text;
-    const { left, pivot, right } = splitAtPivot(text);
+    const { left, pivot, right } = splitPhrase(text);
     this.leftEl.textContent = left;
     this.pivotEl.textContent = pivot;
     this.rightEl.textContent = right;

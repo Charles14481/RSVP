@@ -8,11 +8,17 @@ export interface Settings {
   timing: TimingSettings;
   /** 'fixed' is classic constant-rate RSVP, chosen explicitly by the user. */
   pacing: PacingMode;
+  /** Words shown at once (1 to 3); groups end at punctuation. */
+  wordsPerFlash: number;
   /** After a pause, resume from the start of the current sentence. */
   resumeAtSentenceStart: boolean;
   /** RSVP word size in px. */
   fontSize: number;
   theme: Theme;
+  /** Keep the text on screen, dimmed and following along, while playing. */
+  textWhilePlaying: boolean;
+  /** The inspector scrolls through the whole text instead of showing a few paragraphs. */
+  inspectorFullText: boolean;
   modelId: string;
   /** 'auto' tries WebGPU first; 'wasm' forces the CPU backend. */
   backend: BackendPreference;
@@ -25,9 +31,12 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   timing: DEFAULT_TIMING,
   pacing: 'surprisal',
+  wordsPerFlash: 1,
   resumeAtSentenceStart: true,
   fontSize: 44,
   theme: 'system',
+  textWhilePlaying: false,
+  inspectorFullText: true,
   modelId: DEFAULT_MODEL_ID,
   backend: 'auto',
   window: 0,
@@ -38,11 +47,10 @@ export const DEFAULT_SETTINGS: Settings = {
 export function mergeSettings(stored: unknown): Settings {
   if (!stored || typeof stored !== 'object') return DEFAULT_SETTINGS;
   const s = stored as Partial<Settings>;
-  return {
-    ...DEFAULT_SETTINGS,
-    ...s,
-    timing: { ...DEFAULT_TIMING, ...(s.timing ?? {}) },
-  };
+  const merged = { ...DEFAULT_SETTINGS, ...s, timing: { ...DEFAULT_TIMING, ...(s.timing ?? {}) } };
+  const n = Math.round(Number(merged.wordsPerFlash));
+  merged.wordsPerFlash = n >= 1 && n <= 3 ? n : DEFAULT_SETTINGS.wordsPerFlash;
+  return merged;
 }
 
 /** `?backend=wasm` and `?model=<id>` override settings for this page load (debugging, smoke tests). */

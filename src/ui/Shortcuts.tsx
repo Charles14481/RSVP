@@ -5,6 +5,7 @@ const KEYS: [string, string][] = [
   ['← / →', 'Previous or next sentence'],
   ['↑ / ↓', 'Faster or slower by 25 wpm'],
   ['R', 'Back to the start of the paragraph'],
+  ['1 / 2 / 3', 'Words shown at a time'],
   ['I', 'Inspector: surprisal of each word'],
   ['S', 'Settings'],
   ['?', 'This list'],
@@ -25,8 +26,8 @@ export function Shortcuts({ onClose }: { onClose: () => void }) {
         ))}
       </dl>
       <p className="field-hint">
-        While paused, the surrounding text is shown with your place marked; click any word to continue from there. On a touch screen, tap
-        the word to play or pause.
+        While paused, the surrounding text is shown with your place marked; click any word to continue from there. Clicking the word starts
+        reading; clicking anywhere pauses. On a touch screen, tap the word to play or pause.
       </p>
     </Panel>
   );

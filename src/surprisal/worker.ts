@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { AutoModelForCausalLM, AutoTokenizer, Tensor, env } from '@huggingface/transformers';
 import { AlignmentError, wordInitialIds, type TokenizerLike } from './align';
+import { decodeHalfRow, topPredictions } from './logprob';
 import { modelSpec, resolveWindow, type Backend, type BackendPreference, type ModelFile } from './models';
 import type { FromWorker, ToWorker } from './protocol';
 import { DocumentScorer, type ForwardFn } from './scorer';
@@ -42,6 +43,20 @@ function boundaryIdsFor(loaded: Loaded): Int32Array {
 }
 let job: Job | null = null;
 
+/** The last document aligned, kept so a prediction does not re-tokenize the whole text. */
+let lastDoc: { text: string; modelId: string; scorer: DocumentScorer } | null = null;
+
+/**
+ * Model calls run one at a time. A prediction can arrive while a scoring job is
+ * between windows; ONNX Runtime sessions do not take overlapping runs.
+ */
+let gate: Promise<unknown> = Promise.resolve();
+function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = gate.then(fn, fn);
+  gate = run.catch(() => {});
+  return run;
+}
+
 function post(msg: FromWorker, transfer: Transferable[] = []): void {
   self.postMessage(msg, transfer);
 }
@@ -68,7 +83,7 @@ function makeForward(model: Model): ForwardFn {
     const n = ids.length;
     const input_ids = new Tensor('int64', BigInt64Array.from(ids, (v) => BigInt(v)), [1, n]);
     const attention_mask = new Tensor('int64', new BigInt64Array(n).fill(1n), [1, n]);
-    const out = (await model({ input_ids, attention_mask })) as Record<string, Tensor>;
+    const out = (await exclusive(() => model({ input_ids, attention_mask }))) as Record<string, Tensor>;
     return {
       logits: out.logits as unknown as { data: ArrayLike<number>; dims: number[]; type: string },
       release: () => {
@@ -200,6 +215,7 @@ async function runJob(msg: Extract<ToWorker, { type: 'score' }>): Promise<void> 
     }
     return;
   }
+  lastDoc = { text: msg.text, modelId: loaded.modelId, scorer };
   if (msg.known) scorer.markKnown(msg.known);
   post({ type: 'job-started', jobId: msg.jobId, words: scorer.words.length, tokens: scorer.tokenCount });
 
@@ -225,6 +241,52 @@ async function runJob(msg: Extract<ToWorker, { type: 'score' }>): Promise<void> 
   }
 }
 
+/** The model's top next tokens just before a word, from one forward pass over the preceding window. */
+async function predict(msg: Extract<ToWorker, { type: 'predict' }>): Promise<void> {
+  const fail = (e: unknown) =>
+    post({ type: 'prediction-error', reqId: msg.reqId, message: e instanceof Error ? e.message : String(e) });
+  if (!loading) return fail('No model has been requested.');
+  try {
+    const loaded = await loading.promise;
+    if (lastDoc?.text !== msg.text || lastDoc.modelId !== loaded.modelId) {
+      lastDoc = { text: msg.text, modelId: loaded.modelId, scorer: new DocumentScorer(loaded.tokenizer, msg.text) };
+    }
+    const doc = lastDoc.scorer;
+    const all = doc.alignment.ids;
+    // The word's first token, predicted from the row of the token before it.
+    const s = doc.tokenOfWord(msg.word);
+    const { window } = resolveWindow(modelSpec(loaded.modelId), loaded.backend, msg.window);
+    const ids = all.subarray(Math.max(0, s - window), s);
+    const result = await makeForward(loaded.model)(ids);
+    try {
+      const { data, dims, type } = result.logits;
+      const V = dims[dims.length - 1];
+      let row: ArrayLike<number> = data;
+      let offset = (ids.length - 1) * V;
+      if (type === 'float16' && data instanceof Uint16Array) {
+        row = decodeHalfRow(data, offset, V, new Float32Array(V));
+        offset = 0;
+      }
+      const target = all[s];
+      const { top, target: t } = topPredictions(row, offset, V, msg.k, target);
+      const text = (id: number) => loaded.tokenizer.decode([id], { clean_up_tokenization_spaces: false });
+      post({
+        type: 'prediction',
+        reqId: msg.reqId,
+        prediction: {
+          guesses: top.map((g) => ({ ...g, text: text(g.id) })),
+          actual: { id: target, text: text(target), p: t.p, rank: t.rank },
+          context: ids.length,
+        },
+      });
+    } finally {
+      result.release();
+    }
+  } catch (e) {
+    fail(e);
+  }
+}
+
 self.onmessage = (event: MessageEvent<ToWorker>) => {
   const msg = event.data;
   switch (msg.type) {
@@ -234,6 +296,9 @@ self.onmessage = (event: MessageEvent<ToWorker>) => {
       break;
     case 'score':
       void runJob(msg);
+      break;
+    case 'predict':
+      void predict(msg);
       break;
     case 'priority':
       if (job?.id === msg.jobId) job.priorityWord = msg.word;

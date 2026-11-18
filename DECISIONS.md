@@ -145,7 +145,7 @@ Each entry: what changed, and why.
 - **Inspector.** Shows two paragraphs either side of the current word (at most 700 words each
   way), shaded linearly from 0 to 16+ bits. Hover shows surprisal, surprisal after spillover and
   the full duration with its pause share. Clicking a word jumps there. Keyboard: I opens it,
-  S opens settings (additions to the plan's shortcuts).
+  S opens settings (additions to the plan's shortcuts). (Superseded: see "Reading views" below.)
 
 - **The paste box became the import preview.** Pasting, text files and (next) PDFs and URLs all
   go through the same editable preview with live word count and reading-time estimate.
@@ -242,6 +242,7 @@ Each entry: what changed, and why.
 ## Milestone 6
 
 - **Touch.** Tapping the reader plays and pauses (the plan's "tap to pause", in both directions).
+  (Since narrowed: only the word starts playback; see "Reading views" below.)
   Previous- and next-sentence buttons flank Play in the footer, since touch has no arrow keys.
   The hint line reads "Tap…" or "Space…" depending on `(pointer: coarse)`. `touch-action:
   manipulation` stops double-tap zoom from eating taps.
@@ -292,3 +293,59 @@ Each entry: what changed, and why.
   in production builds only. The build uses a relative `base` so it works from a subpath.
   Checked by `scripts/smoke-offline.mjs`: offline reload, cached document plays, and a new
   document is scored offline in about 3 s.
+
+## Reading views
+
+- **The text views scroll through the whole document, a window at a time.** The paused text and
+  the inspector render about 2,000 words either side of the current word, add 1,500 more when
+  scrolling comes within 800 px of an edge, and never hold more than 12,000 (the far side is
+  trimmed). Rendering a 150,000-word book as spans on every pause is too slow, which is the reason
+  for the window. Edges snap to paragraph breaks unless a paragraph is longer than a chunk. When
+  text is added or removed above the viewport, the first word of the topmost visible paragraph is
+  put back where it was; `overflow-anchor: none` keeps the browser's own scroll anchoring from
+  adjusting twice. The shared logic is `src/ui/useScrollWindow.ts`.
+- **Text while playing (setting, off by default).** Classic RSVP shows nothing but the word, so
+  this is opt-in. While playing, the text is dimmed and the word on screen is marked by toggling
+  a class on one span outside React, once per word, from the scheduler's `show`. The mark only
+  changes paint properties, so reading its position afterwards does not force a layout. The view
+  scrolls to keep the word between 15% and 60% of its height, and holds off for 3 s after the
+  reader scrolls by hand. A seek outside the loaded range recentres the window.
+- **Only the word starts playback.** A click anywhere in the reader pauses, but only a click on
+  the word (or Space, or Play) starts it, so clicking beside the text to dismiss something or
+  focus the page does not set words flashing.
+- **Inspector predictions.** Clicking a word in the inspector shows the model's ten most probable
+  next tokens just before it, with probabilities, and the rank and probability of the token the
+  text actually used. Jumping moved to a "Read from here" button. The worker runs one forward pass
+  over the window of tokens before the word's first token (the same window size as scoring) and
+  reads the last row. These are tokens, not words: a guess can be punctuation or the first piece
+  of a longer word, and the actual word's full surprisal is shown next to them. Predicting
+  several-token words would need a short generation per candidate, which is more than the panel
+  needs. The worker keeps the last aligned document, so a click does not re-tokenize the text,
+  and runs model calls one at a time, so a prediction waits for at most one scoring window. A
+  fully cached document loads the model on the first click.
+- **Inspector shows the whole text (setting, on by default).** Off restores the earlier view of
+  two paragraphs either side.
+
+## Multi-word RSVP
+
+- **Groups of up to 1, 2 or 3 words (setting `wordsPerFlash`, default 1; keys 1 to 3).** A group
+  ends after any word that earns a pause (clause, sentence or paragraph end, a lone dash), so a
+  phrase never straddles punctuation and the pause still lands after it. It also stops before
+  passing 6 + 7n characters (20 for two words, 27 for three) so groups stay readable at the chosen
+  word size; a single long word is still shown alone. Glued pieces of a split chunk join without a
+  space. `src/player/groups.ts`.
+- **Groups are formed greedily from wherever reading starts**, not fixed for the document, so
+  clicking a word or resuming at a sentence start always begins a group exactly there. Breaks at
+  punctuation make the grouping settle into the same phrases within a clause either way.
+- **A group stays up for the sum of its words' durations.** Surprisal still decides the time (a
+  phrase holding a surprising word stays up longer), the effective rate and time-left estimate
+  are unchanged by the group size, and a group waits (buffering) until every word in it is
+  scored. Shorter totals for grouped words, on the theory that phrases are read faster, would be a
+  separate pacing claim that the timing model does not make.
+- **The pivot is the usual letter of the word under the middle of the phrase.** The pivot column
+  stays fixed, so the eye lands near the phrase's centre on a natural fixation letter; for one word
+  this is exactly the single-word pivot. Wide phrases shrink to fit like long words.
+- **Positions stay word indices.** The scheduler takes an optional `next(i)` from its host
+  (default i + 1) and otherwise does not know about groups; progress, saved positions, sentence
+  navigation and pausing all see the group's first word. The live text marks every word of the
+  group on screen.
