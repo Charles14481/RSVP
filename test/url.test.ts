@@ -69,6 +69,11 @@ describe('extractArticle', () => {
     expect(paragraphs).toContain(para(4));
     expect(paragraphs).toContain(para(5));
     expect(a.text).not.toMatch(/Home|Copyright|window\.evil|pwned/);
+    expect(a.markdown).toContain('*emphasis*');
+    expect(a.markdown).toContain('[a link](<https://news.example/x>)');
+    expect(a.markdown).toMatch(/^## A subheading$/m);
+    expect(a.markdown).toMatch(/^- First point in a list\.$/m);
+    expect(a.markdown).not.toMatch(/window\.evil|pwned/);
   });
 
   it('never runs scripts or touches the live document', () => {

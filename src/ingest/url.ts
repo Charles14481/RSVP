@@ -1,4 +1,5 @@
 import { Readability } from '@mozilla/readability';
+import { htmlToMarkdown } from './html';
 
 export class UrlImportError extends Error {
   constructor(
@@ -13,7 +14,10 @@ export class UrlImportError extends Error {
 
 export interface Article {
   title: string;
+  /** Plain text, one paragraph per block. */
   text: string;
+  /** The same article as Markdown, keeping emphasis, headings, lists and links. */
+  markdown: string;
   byline?: string;
   siteName?: string;
   url: string;
@@ -133,10 +137,25 @@ export function extractArticle(html: string, url: string): Article {
   return {
     title: cleanTitle(parsed.title ?? '', parsed.siteName) || new URL(url).hostname,
     text,
+    markdown: htmlToMarkdown(articleDoc.body),
     ...(parsed.byline ? { byline: parsed.byline.trim() } : {}),
     ...(parsed.siteName ? { siteName: parsed.siteName.trim() } : {}),
     url,
   };
+}
+
+/**
+ * A saved web page or other HTML file as Markdown: the article if Readability
+ * finds one, otherwise the whole body.
+ */
+export function htmlDocumentToMarkdown(html: string, url: string): { title: string; markdown: string } {
+  try {
+    const a = extractArticle(html, url);
+    return { title: a.title, markdown: a.markdown };
+  } catch {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return { title: doc.title.replace(/\s+/g, ' ').trim(), markdown: doc.body ? htmlToMarkdown(doc.body) : '' };
+  }
 }
 
 /** Fetch a page through the proxy and extract its article. */

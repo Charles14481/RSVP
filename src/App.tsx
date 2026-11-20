@@ -151,7 +151,19 @@ export function App() {
         return;
       }
       const text = await file.text();
-      setView({ kind: 'import', draft: { title, text, source: 'file', origin: file.name } });
+      if (/\.(html?|xhtml)$/i.test(file.name) || /html/.test(file.type)) {
+        const { htmlDocumentToMarkdown } = await import('./ingest/url');
+        const page = htmlDocumentToMarkdown(text, `file:///${encodeURIComponent(file.name)}`);
+        if (!page.markdown.trim()) {
+          setMessage(`${file.name} contains no readable text.`);
+          return;
+        }
+        setView({ kind: 'import', draft: { title: page.title || title, text: page.markdown, source: 'file', origin: file.name, format: 'markdown' } });
+        return;
+      }
+      // Markdown files are read as Markdown; other text files are guessed from their content.
+      const format = /\.(md|markdown|mdown|mkd|mkdn)$/i.test(file.name) ? 'markdown' : undefined;
+      setView({ kind: 'import', draft: { title, text, source: 'file', origin: file.name, format } });
     } catch (e) {
       setMessage(e instanceof Error && /NoTextLayer|PdfError/.test(e.name) ? e.message : `Could not read ${file.name}: ${String(e)}`);
     }
@@ -209,7 +221,7 @@ export function App() {
             onArticle={(a) => {
               setUrlOpen(false);
               const notes = [a.byline, a.siteName].filter(Boolean).length ? [`From ${[a.siteName, a.byline].filter(Boolean).join(', ')}.`] : undefined;
-              setView({ kind: 'import', draft: { title: a.title, text: a.text, source: 'url', origin: a.url, notes } });
+              setView({ kind: 'import', draft: { title: a.title, text: a.markdown, source: 'url', origin: a.url, notes, format: 'markdown' } });
             }}
           />
         ) : null

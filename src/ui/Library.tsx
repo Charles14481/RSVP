@@ -21,7 +21,7 @@ interface Props {
   overlay?: ReactNode;
 }
 
-const FILE_TYPES = '.txt,.text,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf';
+const FILE_TYPES = '.txt,.text,.md,.markdown,.mdown,.mkd,.mkdn,.html,.htm,.xhtml,.pdf,text/plain,text/markdown,text/html,application/xhtml+xml,application/pdf';
 
 export function Library(props: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);

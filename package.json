@@ -17,12 +17,14 @@
     "lint:chars": "node scripts/escape-invisible.mjs --check src test server worker",
     "smoke:pdf": "vite build && node scripts/smoke-pdf.mjs",
     "smoke:url": "node scripts/smoke-url.mjs",
+    "smoke:format": "vite build && node scripts/smoke-format.mjs",
     "smoke:offline": "vite build && node scripts/smoke-offline.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
     "@mozilla/readability": "^0.6.0",
     "idb-keyval": "^6.3.0",
+    "marked": "18.1.3",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

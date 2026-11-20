@@ -1,6 +1,7 @@
+import { WordStyles } from '../segment/format';
 import { segment } from '../segment/segment';
 import { MeanTracker } from '../timing/timing';
-import { newSurprisal, type Surprisal, type Word } from '../types';
+import { newSurprisal, type DocFormat, type Surprisal, type Word } from '../types';
 
 /**
  * Everything the player needs for one open document: its words, the surprisal
@@ -11,6 +12,8 @@ export class ReaderSession {
   readonly words: Word[];
   readonly surprisal: Surprisal;
   readonly mean: MeanTracker;
+  /** Formatting for the text views and display, if the document has any. */
+  readonly styles: WordStyles | null;
   private scored = 0;
   private rev = 0;
   private listeners = new Set<() => void>();
@@ -19,8 +22,10 @@ export class ReaderSession {
   constructor(
     readonly text: string,
     meanSeed: number,
+    format?: DocFormat | null,
   ) {
     this.words = segment(text);
+    this.styles = WordStyles.from(format, this.words);
     this.surprisal = newSurprisal(this.words.length);
     this.mean = new MeanTracker(meanSeed);
   }

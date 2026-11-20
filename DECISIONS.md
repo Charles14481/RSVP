@@ -349,3 +349,56 @@ Each entry: what changed, and why.
   (default i + 1) and otherwise does not know about groups; progress, saved positions, sentence
   navigation and pausing all see the group's first word. The live text marks every word of the
   group on screen.
+
+## Markdown and rich text
+
+- **One editable form: Markdown.** The import preview stays a plain textarea. Markdown files and
+  pasted Markdown are kept as written; rich HTML (a paste from a web page, Word or Google Docs, an
+  `.html` file, a fetched article) is converted to Markdown first (`src/ingest/html.ts`), so
+  trimming junk works the same everywhere and nothing is hidden from the editor. A Plain text /
+  Markdown switch decides how the text is read; it is guessed on paste and on load
+  (`looksLikeMarkdown`, which needs a strong sign such as a link, bold, a heading, a fence or a
+  table, or two weak ones), and a choice made by hand sticks. Plain text is the default because
+  reading prose as Markdown can turn an indented paragraph into code or eat asterisks. Pasted
+  text that itself looks like Markdown wins over the HTML an editor puts beside it, since code
+  editors copy syntax-highlighted HTML.
+- **Stored as plain text plus a formatting layer.** `text:<id>` stays the normalized plain text,
+  so the surprisal cache, positions and alignment are unchanged and the model never sees syntax
+  or URLs. `format:<id>` (`DocFormat` in `src/types.ts`) holds word-index runs of style bits
+  (bold, italic, code, strike), word-index runs of links and per-paragraph block styles
+  (heading level, list item with depth, quote, code line, table row). Older documents simply
+  have none. Ranges outside the text are ignored, so a bad record can only lose formatting.
+- **Conversion goes through normalizeText.** `src/ingest/markdown.ts` walks marked's tokens
+  (marked 18.1.3, CommonMark plus GitHub tables, strikethrough and autolinks) and writes the text
+  with private-use sentinel characters where styles, links and blocks start and end. That string
+  is normalized like any plain-text import, then the sentinels are stripped chunk by chunk and
+  become word formatting. Paragraph splitting is therefore identical to plain text, including
+  the hard-wrap rule: a single line break inside a Markdown paragraph starts a new paragraph
+  unless the document looks hard-wrapped. Strict CommonMark would join such lines; notes and
+  pasted snippets (like an indented line under a bold heading) usually mean them as separate.
+  Every line of a list item or quote carries the block's sentinel, so lines that become
+  paragraphs keep their style. Sentinel code points are removed from the input first.
+- **Word granularity.** A word is styled if any of its characters is, and a link covers every word
+  with a linked character (so "them." in "[them](...)." is linked). Drawing per word keeps the
+  text views' one-span-per-word structure that live following depends on.
+- **What is kept and what is dropped.** Link text is kept and the URL dropped; only http(s) and
+  mailto links are stored, others keep their text. Images, rules, link definitions and HTML
+  comments are dropped. Code blocks become one paragraph per non-blank line. Table rows become
+  paragraphs with cells joined by "; " (no separator after a cell ending in punctuation), so the
+  RSVP display never flashes a lone "|". Ordered list numbers stay in the text ("2."); bullets are
+  drawn, not read. Simple inline HTML (b, i, em, strong, code, s, a, br) is understood, and any
+  left open is closed at the end of its block.
+- **Display.** The text views and inspector draw bold, italics, code, strikethrough, links,
+  headings, nested lists, quotes and code lines. A plain click still jumps (or asks the model, in
+  the inspector); Ctrl/Cmd+click or a middle click opens a link in a new tab with
+  `noopener,noreferrer`. The flashed word is set in bold, italics or monospace when every word on
+  screen shares that style (headings count as bold), and the display measures with that font so
+  the pivot stays put. Formatting never changes timing.
+- **Fetched articles keep their formatting.** Readability's article HTML is converted to Markdown
+  (`Article.markdown`) as well as plain text; the plain text still decides whether there is
+  enough of an article.
+- **Rich paste uses `execCommand('insertText')`** so the converted paste can be undone with
+  Ctrl+Z like any other edit.
+- **Not supported yet:** `.docx`, `.epub` and `.rtf` files (rich text pasted from those apps is
+  converted). Each needs its own reader; .docx and .epub also need unzipping.
+

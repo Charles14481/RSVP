@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ReaderSession } from '../player/session';
+import { paraProps, wordClass } from '../segment/format';
 import { paragraphRange } from '../segment/nav';
 import type { Prediction } from '../surprisal/protocol';
 import { baseInterval, pauseFactor, spilled, summarizePace, wordDuration, type Pacing } from '../timing/timing';
+import { followLink, LINK_HINT } from './ContextView';
 import { Panel } from './Panel';
 import { useScrollWindow } from './useScrollWindow';
 
@@ -49,7 +51,7 @@ function tokenLabel(text: string): string {
  * Clicking a word asks the model what it expected there instead.
  */
 export function Inspector({ session, pacing, index, fullText, predict, onJump, onClose, modelLabel }: Props) {
-  const { words, surprisal } = session;
+  const { words, surprisal, styles } = session;
   const [hover, setHover] = useState<number | null>(null);
   const [pred, setPred] = useState<PredictState | null>(null);
   const passageRef = useRef<HTMLDivElement | null>(null);
@@ -83,14 +85,16 @@ export function Inspector({ session, pacing, index, fullText, predict, onJump, o
       if (spans.length && !w.glued) spans.push(' ');
       const style = Number.isNaN(s) ? undefined : { backgroundColor: `rgba(var(--heat), ${(Math.min(s, SHADE_MAX) / SHADE_MAX) * 0.85})` };
       const cls = `insp-word${Number.isNaN(s) ? ' unscored' : ''}${i === index ? ' current' : ''}${s > 12 ? ' hot' : ''}${i === picked ? ' picked' : ''}`;
+      const href = styles?.href(i);
       spans.push(
-        <span key={i} data-i={i} className={cls} style={style}>
+        <span key={i} data-i={i} className={cls + wordClass(styles, i)} style={style} title={href ? `${href}\n${LINK_HINT}` : undefined}>
           {w.text}
         </span>,
       );
       if (w.paragraphEnd || i === to - 1) {
+        const para = paraProps(styles, w.paragraphIndex);
         paragraphs.push(
-          <p key={i} data-p="">
+          <p key={i} data-p="" className={para.className.trim() || undefined} style={para.style as CSSProperties | undefined}>
             {spans}
           </p>,
         );
@@ -100,7 +104,7 @@ export function Inspector({ session, pacing, index, fullText, predict, onJump, o
     return paragraphs;
     // session.version changes as scores arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words, surprisal, from, to, index, picked, session.version]);
+  }, [words, surprisal, styles, from, to, index, picked, session.version]);
 
   const summary = useMemo(() => summarizePace(words, surprisal, pacing), [words, surprisal, pacing]);
   const scoredPct = words.length ? Math.floor((session.scoredCount / words.length) * 100) : 0;
@@ -219,7 +223,11 @@ export function Inspector({ session, pacing, index, fullText, predict, onJump, o
         }}
         onClick={(e) => {
           const i = (e.target as HTMLElement).dataset?.i;
-          if (i !== undefined) ask(Number(i));
+          if (i !== undefined && !followLink(e, styles, Number(i))) ask(Number(i));
+        }}
+        onAuxClick={(e) => {
+          const i = (e.target as HTMLElement).dataset?.i;
+          if (i !== undefined && e.button === 1) followLink(e, styles, Number(i), true);
         }}
       >
         {from > 0 && <p className="ctx-more">…</p>}

@@ -69,7 +69,7 @@ export function UrlImport({ onArticle, onPaste, onClose }: Props) {
           .
         </p>
       ) : (
-        <p className="field-hint">The page is fetched through a small proxy and turned into plain text; you can edit it before reading.</p>
+        <p className="field-hint">The page is fetched through a small proxy and turned into text, keeping headings, emphasis and links; you can edit it before reading.</p>
       )}
     </form>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { WordDisplay } from '../player/display';
 import { groupEnd, groupText } from '../player/groups';
+import { groupBits } from '../segment/format';
 import { Scheduler, type PlayState } from '../player/scheduler';
 import type { ReaderSession } from '../player/session';
 import { nextSentenceStart, paragraphStart, previousSentenceStart, sentenceStart } from '../segment/nav';
@@ -122,7 +123,7 @@ export function Reader(props: ReaderProps) {
       next: end,
       show: (i) => {
         const e = end(i);
-        display.show(groupText(words, i, e));
+        display.show(groupText(words, i, e), groupBits(session.styles, words, i, e));
         writeProgress(i, false);
         followRef.current?.(i, e);
       },
@@ -370,7 +371,7 @@ export function Reader(props: ReaderProps) {
                   ? 'Tap the word to read · tap the text to jump'
                   : 'Space to read · click any word to jump · ? for shortcuts'}
             </div>
-            <ContextView words={words} index={index} onPick={jump} live={liveText} followRef={followRef} />
+            <ContextView words={words} styles={session.styles} index={index} onPick={jump} live={liveText} followRef={followRef} />
           </>
         )}
       </main>

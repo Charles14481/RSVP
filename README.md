@@ -33,8 +33,14 @@ very next word.
 
 ## Using it
 
-- **Import:** paste text, open a `.txt`/`.md` or PDF file, or fetch a web page. Every route ends
-  in an editable preview so you can cut headers, references or other junk before reading.
+- **Import:** paste text, open a `.txt`, Markdown, HTML or PDF file, or fetch a web page. Every
+  route ends in an editable preview so you can cut headers, references or other junk before
+  reading.
+- **Formatting:** Markdown is read as Markdown (detected when pasted, or picked with the Plain
+  text / Markdown switch), and rich text pasted from a web page, Word or Google Docs is converted
+  to Markdown as it is pasted. Bold, italics, code, headings, lists, quotes, tables and links are
+  kept: the text views draw them, the flashed word shows emphasis, and Ctrl+click (Cmd+click on
+  a Mac) opens a link. Pacing and surprisal see only the words, never the syntax or the URLs.
 - **Model:** the model downloads once (128 MB on the CPU backend, 251 MB on WebGPU) and is cached
   by the browser. Scoring runs in a background worker and streams ahead of you. Playback starts as
   soon as the first window is scored. If you catch up with the scorer, the reader shows a brief
@@ -99,6 +105,7 @@ npm run build        # type-check and build to dist/
 | `npm run smoke` | Builds, then drives the installed Chrome headlessly: loads the sample, plays, checks onset timing, the inspector and settings, then reloads to check persistence. Add `-- --wasm` to force the CPU backend. |
 | `npm run smoke:pdf` | Generates a 300-page PDF, imports it, and measures time to first word and UI responsiveness while scoring. |
 | `npm run smoke:url` | Builds with the proxy enabled and imports a Wikipedia article through it. |
+| `npm run smoke:format` | Pastes Markdown and rich HTML through the real clipboard, previews and saves them, and checks the text view's formatting and Ctrl+click on links. Needs no model. |
 | `npm run smoke:offline` | Installs the service worker, then cuts the network: reopens a cached document and scores a new one offline. |
 
 The smoke scripts use `playwright-core` with the Chrome already installed on the machine. No

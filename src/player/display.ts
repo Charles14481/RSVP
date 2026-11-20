@@ -1,3 +1,4 @@
+import { STYLE } from '../types';
 import { splitPhrase } from './orp';
 
 /**
@@ -10,6 +11,8 @@ export class WordDisplay {
   private availLeft = Infinity;
   private availRight = Infinity;
   private current = '';
+  private currentBits = 0;
+  private fonts = { size: '', family: '', weight: '', style: '', mono: '' };
 
   constructor(
     private readonly stage: HTMLElement,
@@ -25,16 +28,35 @@ export class WordDisplay {
   /** Re-read font and stage size. Call after a resize or a font-size change. */
   measure(): void {
     const cs = getComputedStyle(this.wordEl);
-    if (this.ctx) this.ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    this.fonts = {
+      size: cs.fontSize,
+      family: cs.fontFamily,
+      weight: cs.fontWeight,
+      style: cs.fontStyle,
+      mono: cs.getPropertyValue('--mono-font').trim() || 'monospace',
+    };
     const pivotX = this.wordEl.offsetLeft;
     const margin = 12;
     this.availLeft = Math.max(1, pivotX - margin);
     this.availRight = Math.max(1, this.stage.clientWidth - pivotX - margin);
-    if (this.current) this.show(this.current);
+    if (this.current) this.show(this.current, this.currentBits);
   }
 
-  show(text: string): void {
+  /** Show a word or phrase; `bits` (STYLE) sets it in bold, italics or code type. */
+  show(text: string, bits = 0): void {
     this.current = text;
+    this.currentBits = bits;
+    const el = this.wordEl;
+    el.classList.toggle('fb', Boolean(bits & STYLE.bold));
+    el.classList.toggle('fi', Boolean(bits & STYLE.italic));
+    el.classList.toggle('fc', Boolean(bits & STYLE.code));
+    if (this.ctx) {
+      // Must match the .rsvp-word.fb/.fi/.fc rules so widths are measured in the font shown.
+      const f = this.fonts;
+      const weight = bits & STYLE.bold ? '700' : f.weight;
+      const style = bits & STYLE.italic ? 'italic' : f.style;
+      this.ctx.font = `${style} ${weight} ${f.size} ${bits & STYLE.code ? f.mono : f.family}`;
+    }
     const { left, pivot, right } = splitPhrase(text);
     this.leftEl.textContent = left;
     this.pivotEl.textContent = pivot;

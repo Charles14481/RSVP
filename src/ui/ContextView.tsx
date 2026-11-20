@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties, type MouseEvent, type MutableRefObject, type ReactNode } from 'react';
+import { openLink, paraProps, wordClass, type WordStyles } from '../segment/format';
 import { paragraphRange } from '../segment/nav';
 import type { Word } from '../types';
 import { useScrollWindow } from './useScrollWindow';
@@ -8,6 +9,8 @@ const HOLD_MS = 3000;
 
 interface Props {
   words: readonly Word[];
+  /** Bold, italics, headings, links and so on, when the document has formatting. */
+  styles?: WordStyles | null;
   index: number;
   onPick: (index: number) => void;
   /** Playback is running: dim the text and follow the word being shown. */
@@ -15,6 +18,22 @@ interface Props {
   /** Set to the follow function while live; the reader calls it with the words [i, end) on screen. */
   followRef?: MutableRefObject<((i: number, end: number) => void) | null>;
 }
+
+const CTRL = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd' : 'Ctrl';
+
+/**
+ * A plain click on a word jumps there; Ctrl/Cmd + click (or a middle click)
+ * on a linked word opens the link instead. Returns true if it did.
+ */
+export function followLink(e: MouseEvent, styles: WordStyles | null | undefined, i: number, middle = false): boolean {
+  const href = styles?.href(i);
+  if (!href || !(middle || e.ctrlKey || e.metaKey)) return false;
+  e.preventDefault();
+  openLink(href);
+  return true;
+}
+
+export const LINK_HINT = `${CTRL} + click to open`;
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -30,7 +49,7 @@ function inView(container: HTMLElement, el: HTMLElement): boolean {
  * and clicking any word jumps to it. Shown while paused so re-reading is one
  * glance away, and optionally while playing, dimmed, following along.
  */
-export const ContextView = memo(function ContextView({ words, index, onPick, live = false, followRef }: Props) {
+export const ContextView = memo(function ContextView({ words, styles, index, onPick, live = false, followRef }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const currentRef = useRef<HTMLSpanElement | null>(null);
   const { from, to, ensure } = useScrollWindow(words, index, () => scrollRef.current);
@@ -118,15 +137,23 @@ export const ContextView = memo(function ContextView({ words, index, onPick, liv
     const w = words[i];
     if (spans.length && !w.glued) spans.push(' ');
     const current = i === index && !live;
+    const href = styles?.href(i);
     spans.push(
-      <span key={i} ref={current ? currentRef : undefined} className={current ? 'ctx-word current' : 'ctx-word'} data-i={i}>
+      <span
+        key={i}
+        ref={current ? currentRef : undefined}
+        className={(current ? 'ctx-word current' : 'ctx-word') + wordClass(styles, i)}
+        data-i={i}
+        title={href ? `${href}\n${LINK_HINT}` : undefined}
+      >
         {w.text}
       </span>,
     );
     if (w.paragraphEnd || i === to - 1) {
       const active = !live && i >= start && i < end;
+      const para = paraProps(styles, w.paragraphIndex);
       paragraphs.push(
-        <p key={w.paragraphIndex} className={active ? 'ctx-para active' : 'ctx-para'} data-p="">
+        <p key={w.paragraphIndex} className={(active ? 'ctx-para active' : 'ctx-para') + para.className} style={para.style as CSSProperties | undefined} data-p="">
           {spans}
         </p>,
       );
@@ -147,7 +174,12 @@ export const ContextView = memo(function ContextView({ words, index, onPick, liv
       onClick={(e) => {
         e.stopPropagation();
         const i = (e.target as HTMLElement).dataset?.i;
-        if (i !== undefined) onPick(Number(i));
+        if (i === undefined) return;
+        if (!followLink(e, styles, Number(i))) onPick(Number(i));
+      }}
+      onAuxClick={(e) => {
+        const i = (e.target as HTMLElement).dataset?.i;
+        if (i !== undefined && e.button === 1) followLink(e, styles, Number(i), true);
       }}
     >
       {from > 0 && <div className="ctx-more">…</div>}

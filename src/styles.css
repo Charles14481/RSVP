@@ -12,6 +12,7 @@
   --heat: 194, 65, 45;
   --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --read-font: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
+  --mono-font: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
   --pivot-x: 38%;
   color-scheme: light;
 }
@@ -304,6 +305,19 @@ p {
   letter-spacing: 0;
   will-change: transform;
   user-select: none;
+}
+
+/* Formatting kept from Markdown or HTML; display.ts measures with the same fonts. */
+.rsvp-word.fb {
+  font-weight: 700;
+}
+
+.rsvp-word.fi {
+  font-style: italic;
+}
+
+.rsvp-word.fc {
+  font-family: var(--mono-font);
 }
 
 .rsvp-word .pivot {
@@ -1139,4 +1153,132 @@ kbd {
 
 .field-hint.block {
   display: block;
+}
+
+/* Formatting in the text views (ContextView, Inspector, import preview). */
+
+.fb {
+  font-weight: 700;
+}
+
+.fi {
+  font-style: italic;
+}
+
+.fc {
+  font-family: var(--mono-font);
+  font-size: 0.88em;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  border-radius: 3px;
+}
+
+.fs {
+  text-decoration: line-through;
+  text-decoration-color: var(--faint);
+}
+
+.fl {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.fl.fs {
+  text-decoration-line: underline line-through;
+}
+
+.f-h1,
+.f-h2,
+.f-h3,
+.f-h4,
+.f-h5,
+.f-h6 {
+  font-family: var(--ui-font);
+  font-weight: 650;
+  line-height: 1.3;
+  margin-top: 1.1em;
+}
+
+.f-h1 {
+  font-size: 1.45em;
+}
+
+.f-h2 {
+  font-size: 1.25em;
+}
+
+.f-h3 {
+  font-size: 1.1em;
+}
+
+.f-quote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.9em;
+  font-style: italic;
+}
+
+.f-li {
+  position: relative;
+  padding-left: calc((var(--depth, 0) + 1) * 1.4em);
+  margin-bottom: 0.35em;
+}
+
+.f-li:not(.f-cont):not(.f-ordered)::before {
+  content: '•';
+  position: absolute;
+  left: calc(var(--depth, 0) * 1.4em + 0.35em);
+  color: var(--faint);
+}
+
+.f-code {
+  font-family: var(--mono-font);
+  font-size: 0.85em;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0.1em 0.8em;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.f-th {
+  font-weight: 650;
+  margin-bottom: 0.2em;
+}
+
+.f-tr {
+  margin-bottom: 0.2em;
+}
+
+/* Import editor */
+
+.import-tools {
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.format-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.format-field .label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.segmented button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.formatted-preview {
+  overflow-y: auto;
+  max-height: 70vh;
+  line-height: 1.65;
+}
+
+.formatted-preview .ctx-para {
+  color: var(--text);
 }

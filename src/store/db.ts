@@ -1,11 +1,13 @@
 import { createStore, del, delMany, get, getMany, keys, set, setMany, update, type UseStore } from 'idb-keyval';
 import { mergeSettings, type Settings } from '../settings';
+import type { DocFormat } from '../types';
 
 /**
  * Everything persists in one IndexedDB object store through idb-keyval:
  *
  *   library              DocMeta[]          small; read on every library view
  *   text:<id>            string             the normalized document text
+ *   format:<id>          DocFormat          formatting kept from Markdown or HTML (optional)
  *   pos:<id>             number             reading position (word index)
  *   settings             Settings
  *   seeded               true               the default documents have been added
@@ -49,6 +51,7 @@ const LIBRARY = 'library';
 const SETTINGS = 'settings';
 const SEEDED = 'seeded';
 const textKey = (id: string) => `text:${id}`;
+const formatKey = (id: string) => `format:${id}`;
 const posKey = (id: string) => `pos:${id}`;
 const surprisalKey = (hash: string, modelId: string) => `surprisal:${hash}:${modelId}`;
 
@@ -78,6 +81,8 @@ export interface NewDoc {
   words: number;
   source: DocSource;
   origin?: string;
+  /** Formatting for the text views; the words come from `text` alone. */
+  format?: DocFormat | null;
   /** Defaults to now; sets where the document sorts in the library. */
   openedAt?: number;
 }
@@ -98,6 +103,7 @@ export async function addDoc(input: NewDoc): Promise<DocMeta> {
     [
       [textKey(meta.id), input.text],
       [posKey(meta.id), 0],
+      ...(input.format ? ([[formatKey(meta.id), input.format]] as [string, DocFormat][]) : []),
     ],
     db(),
   );
@@ -134,13 +140,18 @@ export async function seedLibrary(docs: readonly Omit<NewDoc, 'openedAt'>[]): Pr
   return added;
 }
 
-export async function getDoc(id: string): Promise<{ meta: DocMeta; text: string; position: number } | null> {
+export async function getDoc(id: string): Promise<{ meta: DocMeta; text: string; position: number; format: DocFormat | null } | null> {
   const list = (await get<DocMeta[]>(LIBRARY, db())) ?? [];
   const meta = list.find((m) => m.id === id);
   if (!meta) return null;
-  const [text, position] = await getMany<unknown>([textKey(id), posKey(id)], db());
+  const [text, position, format] = await getMany<unknown>([textKey(id), posKey(id), formatKey(id)], db());
   if (typeof text !== 'string') return null;
-  return { meta, text, position: typeof position === 'number' ? position : 0 };
+  return {
+    meta,
+    text,
+    position: typeof position === 'number' ? position : 0,
+    format: format && typeof format === 'object' ? (format as DocFormat) : null,
+  };
 }
 
 export async function updateDoc(id: string, patch: Partial<Pick<DocMeta, 'title' | 'openedAt'>>): Promise<void> {
@@ -164,7 +175,7 @@ export async function deleteDoc(id: string): Promise<void> {
     },
     db(),
   );
-  const doomed = [textKey(id), posKey(id)];
+  const doomed = [textKey(id), posKey(id), formatKey(id)];
   if (removed && !remaining.some((m) => m.hash === removed!.hash)) {
     const prefix = `surprisal:${removed.hash}:`;
     for (const k of await keys(db())) if (typeof k === 'string' && k.startsWith(prefix)) doomed.push(k);

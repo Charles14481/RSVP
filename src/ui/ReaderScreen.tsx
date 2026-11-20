@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { ReaderSession } from '../player/session';
 import type { Settings } from '../settings';
 import { clearSurprisalCache, loadSurprisal, savePosition, saveSurprisal, type DocMeta } from '../store/db';
+import type { DocFormat } from '../types';
 import { surprisalService } from '../surprisal/client';
 import { modelSpec } from '../surprisal/models';
 import { summarizePace, type Pacing } from '../timing/timing';
@@ -15,6 +16,7 @@ export interface OpenDoc {
   meta: DocMeta;
   text: string;
   position: number;
+  format?: DocFormat | null;
 }
 
 interface Props {
@@ -40,7 +42,7 @@ export function ReaderScreen({ doc, settings, onSettings, onExit }: Props) {
 
   // Surprisal belongs to a model, so switching models starts a fresh session.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const session = useMemo(() => new ReaderSession(doc.text, modelSpec(modelId).meanBits), [doc.text, cacheKey]);
+  const session = useMemo(() => new ReaderSession(doc.text, modelSpec(modelId).meanBits, doc.format), [doc.text, cacheKey]);
   const version = useSyncExternalStore(session.subscribe, () => session.version);
 
   useEffect(() => {

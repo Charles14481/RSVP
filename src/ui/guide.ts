@@ -24,7 +24,7 @@ Press the letter S to open the settings. There you can change the reading rate, 
 
 Press the letter I to open the inspector. It shows the passage around you with each word shaded by how surprising the model found it. Hover over a word to see exactly how long it stays on screen, and click it to see which words the model expected there. Press the question mark key to see every shortcut, and press Escape to close a panel or go back to the library.
 
-To read something of your own, go back to the library. You can paste text, open a text file or a PDF, or fetch an article from a web page. Each one opens in a preview first, so you can trim headers, footnotes or anything else you do not want to read.
+To read something of your own, go back to the library. You can paste text, open a text file, a Markdown or web page file or a PDF, or fetch an article from a web page. Bold, italics, headings and links are kept and shown in the text below the word. Each one opens in a preview first, so you can trim headers, footnotes or anything else you do not want to read.
 
 The first time you read, the language model downloads once and your browser keeps it. After that, scoring happens on your own device, a little ahead of where you are reading. The text you read never leaves your device, and once the model is saved the reader works without a connection.
 

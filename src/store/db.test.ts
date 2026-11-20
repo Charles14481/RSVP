@@ -39,8 +39,17 @@ describe('store', () => {
     expect(list[0]).toMatchObject({ origin: 'three.txt', position: 0, words: 1 });
 
     const doc = await getDoc(a.id);
-    expect(doc).toMatchObject({ text: 'One two.', position: 0, meta: { id: a.id } });
+    expect(doc).toMatchObject({ text: 'One two.', position: 0, meta: { id: a.id }, format: null });
     expect(await getDoc('missing')).toBeNull();
+  });
+
+  it('stores formatting beside the text and deletes it with the document', async () => {
+    const format = { v: 1 as const, runs: [[0, 1, 1]] as [number, number, number][], links: [], blocks: [] };
+    const a = await addDoc({ title: 'F', text: 'Bold word.', words: 2, source: 'paste', format });
+    expect((await getDoc(a.id))!.format).toEqual(format);
+    await deleteDoc(a.id);
+    const b = await addDoc({ title: 'G', text: 'Bold word.', words: 2, source: 'paste' });
+    expect((await getDoc(b.id))!.format).toBeNull();
   });
 
   it('seeds the default documents once, top first, and never brings them back', async () => {
