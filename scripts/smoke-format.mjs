@@ -132,6 +132,18 @@ try {
   await page.keyboard.press('Control+Y');
   await page.getByRole('button', { name: 'Preview' }).click();
   await shot(page, '3-rich-preview');
+
+  console.log('7. emphasis with spaces inside the delimiters, as note apps export it');
+  await page.getByRole('button', { name: '← Back' }).click();
+  await page.getByRole('button', { name: 'Paste text' }).click();
+  await paste(page, { 'text/plain': '**Anti-induction heads: **A variant that has the same attention pattern, but __suppresses __the token attended to.' });
+  check((await page.locator('.format-field button.on').textContent()) === 'Markdown', 'format did not switch to Markdown');
+  await page.getByRole('button', { name: 'Preview' }).click();
+  const loose = await page.locator('.formatted-preview').innerText();
+  const bold = await page.locator('.formatted-preview .fb').allTextContents();
+  console.log('  preview:', JSON.stringify(loose), 'bold:', bold);
+  check(!/[*_]/.test(loose) && bold.join(' ') === 'Anti-induction heads: suppresses', 'loose emphasis not read as bold');
+  await shot(page, '4-loose-emphasis');
 } finally {
   await ctx.close();
   await new Promise((r) => server.httpServer.close(r));

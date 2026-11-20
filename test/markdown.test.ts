@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertText, decodeEntities, looksLikeMarkdown, markdownToDoc } from '../src/ingest/markdown';
+import { convertText, decodeEntities, looksLikeMarkdown, markdownToDoc, repairEmphasis } from '../src/ingest/markdown';
 import { WordStyles, groupBits } from '../src/segment/format';
 import { normalizeText, segment } from '../src/segment/segment';
 import { STYLE, type DocFormat } from '../src/types';
@@ -37,6 +37,23 @@ describe('markdownToDoc', () => {
     expect(v.link('Mathematical')).toBe('https://transformer-circuits.pub/2021/framework/index.html');
     expect(v.link('Frye')).toBe('https://www.youtube.com/watch?v=dCkQQYwPxdM');
     expect(v.link('Check')).toBeUndefined();
+  });
+
+  it('reads emphasis whose delimiters have a space on the inside, as note apps export it', () => {
+    const v = view('**Anti-induction heads: **A variant that has the same attention pattern, but __suppresses __the token attended to.');
+    expect(v.text).toBe('Anti-induction heads: A variant that has the same attention pattern, but suppresses the token attended to.');
+    expect(v.styled(STYLE.bold)).toEqual(['Anti-induction', 'heads:', 'suppresses']);
+    expect(view('a word** bold** here and *it *x').styled(STYLE.bold)).toEqual(['bold']);
+    expect(view('a word** bold** here and *it *x').styled(STYLE.italic)).toEqual(['it']);
+  });
+
+  it('leaves alone what only looks like misplaced emphasis', () => {
+    for (const src of ['2 ** 3 ** 4 is a power', 'snake_case and __init__ names', 'a * b * c', '`**code **x`']) {
+      expect(repairEmphasis(src)).toBe(src);
+    }
+    expect(repairEmphasis('* item with *emphasis*')).toBe('* item with *emphasis*');
+    expect(repairEmphasis('```\n**a **b\n```')).toBe('```\n**a **b\n```');
+    expect(repairEmphasis('**fine** and **also fine**')).toBe('**fine** and **also fine**');
   });
 
   it('produces normalized text, so the reader and the cache see exactly what was saved', () => {
@@ -151,6 +168,7 @@ describe('looksLikeMarkdown', () => {
     expect(looksLikeMarkdown(SNIPPET)).toBe(true);
     expect(looksLikeMarkdown('# Notes\n\nSome text.')).toBe(true);
     expect(looksLikeMarkdown('Some **bold** words.')).toBe(true);
+    expect(looksLikeMarkdown('**Anti-induction heads: **A variant, but __suppresses __the token.')).toBe(true);
     expect(looksLikeMarkdown('```\ncode\n```')).toBe(true);
     expect(looksLikeMarkdown('| a | b |\n|---|---|\n| 1 | 2 |')).toBe(true);
   });

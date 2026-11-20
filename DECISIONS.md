@@ -378,6 +378,12 @@ Each entry: what changed, and why.
   pasted snippets (like an indented line under a bold heading) usually mean them as separate.
   Every line of a list item or quote carries the block's sentinel, so lines that become
   paragraphs keep their style. Sentinel code points are removed from the input first.
+- **Emphasis with a space inside the delimiters is accepted.** Note apps and word processors
+  often export "**Anti-induction heads: **A variant" or "__suppresses __the", which strict
+  CommonMark (and GitHub) shows with literal asterisks and underscores. `repairEmphasis` moves
+  the space outside the delimiters before parsing, outside fenced code and code spans, and only
+  when the pair is unambiguous: "2 ** 3 ** 4", `__init__`, list markers and valid emphasis are
+  left alone. The Markdown detector accepts the same form.
 - **Word granularity.** A word is styled if any of its characters is, and a link covers every word
   with a linked character (so "them." in "[them](...)." is linked). Drawing per word keeps the
   text views' one-span-per-word structure that live following depends on.

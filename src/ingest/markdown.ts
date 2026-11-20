@@ -444,9 +444,52 @@ function finish(e: Emitter): ConvertedDoc {
 /** Markdown (CommonMark with GitHub tables, strikethrough and autolinks) to plain text with formatting. */
 export function markdownToDoc(src: string): ConvertedDoc {
   const e = new Emitter();
-  const tokens = Lexer.lex(src.replace(SENTINELS, ''), { gfm: true });
+  const tokens = Lexer.lex(repairEmphasis(src.replace(SENTINELS, '')), { gfm: true });
   e.blockTokens(tokens, { para: null, listDepth: 0, quote: false });
   return finish(e);
+}
+
+// A closing delimiter after whitespace ("**heads: **A") or an opening one before it
+// ("word** bold**"), which CommonMark leaves as literal asterisks or underscores.
+const SPACE_BEFORE_CLOSE = /(^|[^\\*_\p{L}\p{N}])(\*\*|__|\*|_)(?=[^\s*_])((?:(?!\2).)*?[^\s\\])(\s+)\2(?![*_])/gu;
+const SPACE_AFTER_OPEN = /(^|[^\\*_])(\*\*|__|\*|_)(\s+)([^\s*_\\](?:(?:(?!\2).)*?[^\s\\])?)\2(?![\p{L}\p{N}*_])/gu;
+const LIST_MARKER = /^(\s*(?:[-*+]|\d+[.)])\s+)?([\s\S]*)$/;
+const CODE_SPAN = /(``[^\n]*?``|`[^`\n]*`)/;
+
+function repairLine(line: string): string {
+  if (!/[*_]/.test(line)) return line;
+  const [, marker = '', rest] = LIST_MARKER.exec(line)!;
+  const fixed = rest
+    .split(CODE_SPAN)
+    .map((part, k) => (k % 2 ? part : part.replace(SPACE_BEFORE_CLOSE, '$1$2$3$2$4').replace(SPACE_AFTER_OPEN, '$1$3$2$4$2')))
+    .join('');
+  return marker + fixed;
+}
+
+/**
+ * Move whitespace from inside emphasis delimiters to outside them, so
+ * "**Anti-induction heads: **A variant" reads as bold the way its author
+ * meant. Strict CommonMark shows such delimiters literally; they are common
+ * in text exported from note apps and word processors. Fenced code and code
+ * spans are left alone.
+ */
+export function repairEmphasis(src: string): string {
+  let fence: string | null = null;
+  return src
+    .split('\n')
+    .map((line) => {
+      const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (fence) {
+        if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+        return line;
+      }
+      if (f) {
+        fence = f[1];
+        return line;
+      }
+      return repairLine(line);
+    })
+    .join('\n');
 }
 
 /** Convert editor text in the given format. */
@@ -456,7 +499,7 @@ export function convertText(src: string, format: TextFormat): ConvertedDoc {
 
 const STRONG_SIGNS = [
   /\[[^\]\n]+\]\((?:https?:|mailto:|\/|#|\.)[^)\s]*(?:\s+"[^"\n]*")?\)/, // [text](url)
-  /(?:^|[\s(])(\*\*|__)(?=\S)[^\n]*?\S\1(?=$|[\s.,;:!?)])/m, // **bold** or __bold__
+  /(?:^|[\s(])(\*\*|__)(?=[^\s*_])[^\n]*?\1(?=$|[\s\p{L}\p{N}.,;:!?)])/mu, // **bold** or __bold__, also "**bold **text"
   /^#{1,6}[ \t]+\S/m, // # heading
   /^ {0,3}(```|~~~)/m, // fenced code
   /^ {0,3}\|?[ \t]*:?-{3,}:?[ \t]*\|/m, // table separator row
