@@ -2,6 +2,7 @@
   "name": "rsvp",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Surprisal-paced RSVP reader that runs entirely in the browser",
   "type": "module",
   "scripts": {
