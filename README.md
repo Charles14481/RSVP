@@ -111,6 +111,58 @@ npm run build        # type-check and build to dist/
 The smoke scripts use `playwright-core` with the Chrome already installed on the machine. No
 browser is downloaded.
 
+## As a Firefox extension
+
+The reader also comes as a Firefox extension (Firefox 142 or newer) that reads the page you are
+on. A small floating box flashes the words as in the app. Each word on screen is also highlighted
+in the page itself, and the page scrolls to keep it in view. The same model, pacing and settings
+apply.
+
+```sh
+npm run build:ext    # builds dist-extension/
+npm run ext:run      # starts Firefox with the extension loaded (web-ext)
+npm run ext:lint     # web-ext lint
+npm run ext:pack     # zips dist-extension/ into web-ext-artifacts/ for signing
+```
+
+To load the extension by hand, open `about:debugging#/runtime/this-firefox`, choose **Load
+Temporary Add-on** and pick `dist-extension/manifest.json`. A permanent install needs the package
+signed through addons.mozilla.org (it can be signed as unlisted).
+
+- **Opening it:** the toolbar button or **Alt+Shift+R** reads the article on the page. With text
+  selected, it reads only the selection. The right-click menu has *Read this page*, *Read
+  selection* and *Read with RSVP from here*; the last starts at the paragraph you clicked. Press
+  the button or the shortcut again to close the reader.
+- **What it reads:** Readability picks out the article. Navigation, sidebars, hidden elements and
+  scripts are left out. If no article is found, it reads the visible text of the page.
+- **In the reader:** the keys are the app's: Space, ← →, ↑ ↓, R, 1 to 3 and Esc. While playing, a
+  click in the page pauses. While paused, a click on a word in the page jumps there. The ⚙ menu
+  holds the most-used options:
+  - words at a time;
+  - fixed or surprisal pacing;
+  - word box plus highlight, or the highlight alone;
+  - what is highlighted: the word and its sentence, the word, or only the sentence (which shows
+    where the reader is without a mark that moves with every word);
+  - scrolling to follow;
+  - keeping the reader open when the tab loads another page;
+  - whether the box sits at the top or the bottom.
+
+  The box can also be dragged anywhere by any part that is not a button, and it stays there. A
+  plain click on the word still plays and pauses. The extension's options page has all the app's
+  settings.
+- **Changing pages:** when a site changes page without loading a new document, the reader reads
+  the new page. A real page load (a link, a reload) closes it, unless *Keep the reader open* is on.
+  Then it opens again on the new page, paused. That option needs access to all sites, because
+  the reader is put back without a click, and Firefox asks for it when you turn the option on in
+  the options page.
+- **What it keeps:** the model is downloaded once for all sites. Surprisal scores and your
+  position are kept per text, so a page you have read before plays at once and resumes where you
+  stopped.
+- **Permissions:** `activeTab` and `scripting` put the reader into a page only when you ask for
+  it. Unless you turn on *Keep the reader open*, the extension has no standing access to any site. `storage` holds the settings, and
+  `menus` adds the right-click items. Page text goes only to the extension's own background page,
+  where it is scored. Only the model download leaves the device.
+
 ## Deploying
 
 The app is static: serve `dist/` anywhere. Two things matter:
@@ -147,6 +199,11 @@ The app is static: serve `dist/` anywhere. Two things matter:
 - The 8-bit CPU model differs from full precision by about a bit per word. It correlates 0.96 to
   0.99 with fp32, and because durations are relative to the running mean, the bias cancels.
 - Out of scope: accounts, sync, EPUB, comprehension quizzes and experiment logging.
+- **Extension:** Firefox does not let extensions run on some pages: `about:` pages,
+  addons.mozilla.org, the built-in PDF viewer and Reader View. On those pages the toolbar button
+  shows a "!". The page text is read once, when the reader opens; text the page adds later is not
+  included. Text inside cross-origin frames and shadow DOM is not read. Extension pages are not
+  cross-origin isolated, so scoring on the CPU backend runs single-threaded; WebGPU is unaffected.
 
 ## Project layout
 
@@ -158,6 +215,8 @@ src/player/    rAF scheduler, ORP display, session state
 src/ingest/    PDF layout + pdf.js wrapper, URL article extraction
 src/store/     IndexedDB persistence
 src/ui/        library, import preview, reader, settings, inspector
+src/extension/ Firefox extension: page extraction, highlighting, overlay, background relay
+extension/     extension manifest, options page and the highlight stylesheet
 server/        fetch proxy handler and Vite middleware
 worker/        the same proxy as a Cloudflare Worker
 tools/         build-time service worker generator

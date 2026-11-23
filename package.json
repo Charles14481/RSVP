@@ -19,7 +19,11 @@
     "smoke:pdf": "vite build && node scripts/smoke-pdf.mjs",
     "smoke:url": "node scripts/smoke-url.mjs",
     "smoke:format": "vite build && node scripts/smoke-format.mjs",
-    "smoke:offline": "vite build && node scripts/smoke-offline.mjs"
+    "smoke:offline": "vite build && node scripts/smoke-offline.mjs",
+    "build:ext": "tsc --noEmit && vite build -c vite.extension.config.ts && vite build -c vite.extension.config.ts --mode content",
+    "ext:run": "web-ext run --source-dir dist-extension --url https://en.wikipedia.org/wiki/Rapid_serial_visual_presentation",
+    "ext:lint": "web-ext lint --source-dir dist-extension",
+    "ext:pack": "web-ext build --source-dir dist-extension --artifacts-dir web-ext-artifacts --overwrite-dest"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
@@ -31,6 +35,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@types/firefox-webext-browser": "^143.0.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -40,6 +45,7 @@
     "playwright-core": "^1.65.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "web-ext": "^10.8.0"
   }
 }

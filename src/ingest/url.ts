@@ -53,11 +53,11 @@ export function decodeHtml(bytes: Uint8Array, contentType: string | null): strin
   }
 }
 
-const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'MATH', 'IFRAME', 'OBJECT', 'EMBED', 'BUTTON', 'SELECT', 'TEXTAREA', 'INPUT', 'CANVAS', 'VIDEO', 'AUDIO', 'PICTURE', 'IMG']);
+export const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'MATH', 'IFRAME', 'OBJECT', 'EMBED', 'BUTTON', 'SELECT', 'TEXTAREA', 'INPUT', 'CANVAS', 'VIDEO', 'AUDIO', 'PICTURE', 'IMG']);
 /** Elements whose whole text is one paragraph. */
-const LEAF_BLOCKS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'PRE', 'FIGCAPTION', 'DT', 'DD', 'TD', 'TH', 'CAPTION', 'ADDRESS', 'SUMMARY']);
+export const LEAF_BLOCKS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'PRE', 'FIGCAPTION', 'DT', 'DD', 'TD', 'TH', 'CAPTION', 'ADDRESS', 'SUMMARY']);
 /** Elements that separate paragraphs but may contain other blocks. */
-const CONTAINERS = new Set(['DIV', 'SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'FOOTER', 'ASIDE', 'NAV', 'UL', 'OL', 'DL', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'FIGURE', 'BLOCKQUOTE', 'FORM', 'FIELDSET', 'DETAILS', 'HR', 'BODY', 'HTML']);
+export const CONTAINERS = new Set(['DIV', 'SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'FOOTER', 'ASIDE', 'NAV', 'UL', 'OL', 'DL', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'FIGURE', 'BLOCKQUOTE', 'FORM', 'FIELDSET', 'DETAILS', 'HR', 'BODY', 'HTML']);
 
 /** Text of an element with <br> as a line break; never touches innerHTML. */
 function textOf(el: Element): string {

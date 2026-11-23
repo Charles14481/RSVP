@@ -162,6 +162,11 @@ export async function savePosition(id: string, index: number): Promise<void> {
   await set(posKey(id), index, db());
 }
 
+export async function loadPosition(id: string): Promise<number> {
+  const value = await get<number>(posKey(id), db());
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
 /** Delete a document, and its surprisal caches unless another document has the same text. */
 export async function deleteDoc(id: string): Promise<void> {
   let removed: DocMeta | undefined;

@@ -1,0 +1,562 @@
+/* The reader overlay, inside a closed shadow root: page styles cannot reach it, and it sets every
+   size in px so the page's root font size does not matter. Adapted from src/styles.css. */
+
+:host {
+  all: initial;
+}
+
+.card {
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface-2: #efece5;
+  --text: #1c1b19;
+  --muted: #6d6961;
+  --faint: #a6a196;
+  --border: #dedad0;
+  --accent: #c2412d;
+  --accent-contrast: #ffffff;
+  --focus: #2f6fde;
+  --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --mono-font: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
+  --pivot-x: 38%;
+  color-scheme: light;
+
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 12px;
+  width: min(760px, calc(100vw - 24px));
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+  font-family: var(--ui-font);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+  padding: 10px 12px 8px;
+  z-index: 2147483647;
+}
+
+.card[data-theme='dark'] {
+  --bg: #121211;
+  --surface: #1b1b19;
+  --surface-2: #242421;
+  --text: #eceae4;
+  --muted: #9d998f;
+  --faint: #6a675f;
+  --border: #302f2b;
+  --accent: #ff7059;
+  --accent-contrast: #1a0c08;
+  --focus: #7aa7ff;
+  color-scheme: dark;
+}
+
+.card[data-position='bottom'] {
+  top: auto;
+  bottom: 12px;
+}
+
+/* Dragged: left and top are set inline. */
+.card[data-position='custom'] {
+  transform: none;
+  bottom: auto;
+}
+
+/* The whole card can be dragged; controls keep their own cursors. */
+.card {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.card.dragging,
+.card.dragging * {
+  cursor: grabbing !important;
+}
+
+.card.dragging {
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.22),
+    0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card *,
+.card *::before,
+.card *::after {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The flashing word, as in the app. */
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 3.4em;
+  cursor: pointer;
+}
+
+.card[data-display='highlight'] .stage {
+  display: none;
+}
+
+.stage-guide {
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.stage-guide::before,
+.stage-guide::after {
+  content: '';
+  position: absolute;
+  left: var(--pivot-x);
+  width: 1px;
+  height: 0.32em;
+  background: var(--faint);
+}
+
+.stage-guide::before {
+  top: 0;
+}
+
+.stage-guide::after {
+  bottom: 0;
+}
+
+.rsvp-word {
+  position: absolute;
+  left: var(--pivot-x);
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: pre;
+  font-family: var(--ui-font);
+  font-weight: 500;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+  color: var(--text);
+  will-change: transform;
+  user-select: none;
+}
+
+.rsvp-word.fb {
+  font-weight: 700;
+}
+
+.rsvp-word.fi {
+  font-style: italic;
+}
+
+.rsvp-word.fc {
+  font-family: var(--mono-font);
+}
+
+.rsvp-word .pivot {
+  color: var(--accent);
+}
+
+.card[data-state='buffering'] .rsvp-word {
+  opacity: 0.25;
+}
+
+/* Status line under the word: model download, buffering, messages. */
+
+/* Always one line tall, empty or not, so the card does not change height as messages come and go. */
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 24px;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.card[data-display='highlight'] .status:empty {
+  display: none;
+}
+
+.spinner {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.meter {
+  display: block;
+  width: 160px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.15s linear;
+}
+
+.problem {
+  margin: 8px 0 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.problem p {
+  margin: 0;
+}
+
+.problem p + p {
+  margin-top: 4px;
+}
+
+.problem .detail {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono-font);
+  word-break: break-word;
+}
+
+.problem .row {
+  margin-top: 8px;
+}
+
+/* Controls */
+
+/* One line that never wraps: the parts whose text changes have fixed widths. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.card[data-display='highlight'] .bar {
+  margin-top: 0;
+}
+
+.bar > * {
+  flex: none;
+}
+
+.bar > .progress {
+  flex: 1 1 auto;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn {
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 12px;
+  margin: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--faint);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn.ghost:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn.square {
+  padding: 2px 8px;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.play {
+  min-width: 68px;
+}
+
+.rate {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.rate strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rate strong {
+  display: inline-block;
+  min-width: 2.2em;
+  text-align: right;
+}
+
+.rate-effective {
+  margin-left: 4px;
+  min-width: 6.6em;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  flex: 1;
+  min-width: 40px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  position: relative;
+}
+
+.progress::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.progress-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+.progress-label {
+  width: 9.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 2px 9px;
+  width: 7.5em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip:empty {
+  visibility: hidden;
+}
+
+/* Quick settings */
+
+.quick {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.quick[hidden] {
+  display: none;
+}
+
+.quick .label {
+  color: var(--muted);
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  justify-self: start;
+}
+
+.segmented button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+  padding: 4px 10px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.segmented button:last-child {
+  border-right: 0;
+}
+
+.segmented button.on {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-right: 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.link {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  justify-self: start;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--faint);
+  text-align: center;
+  padding-top: 4px;
+}
+
+/* Highlight boxes where the CSS Custom Highlight API is missing. */
+
+.boxes {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483646;
+}
+
+.boxes > div {
+  position: fixed;
+  border-radius: 2px;
+}
+
+.hl-sentence {
+  background: rgba(255, 214, 102, 0.22);
+}
+
+.hl-current {
+  background: rgba(255, 196, 0, 0.55);
+}
+
+.hl-sentence-only {
+  background: rgba(255, 205, 70, 0.4);
+}
+
+.note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.note.block {
+  display: block;
+}
+
+.note.block:empty {
+  display: none;
+}
+
+@media (max-width: 680px) {
+  .rate-effective,
+  .progress-label,
+  .chip {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}

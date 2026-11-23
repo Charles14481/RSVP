@@ -3,7 +3,7 @@ import { ReaderSession } from '../player/session';
 import type { Settings } from '../settings';
 import { clearSurprisalCache, loadSurprisal, savePosition, saveSurprisal, type DocMeta } from '../store/db';
 import type { DocFormat } from '../types';
-import { surprisalService } from '../surprisal/client';
+import { surprisalService } from '../surprisal/service';
 import { modelSpec } from '../surprisal/models';
 import { summarizePace, type Pacing } from '../timing/timing';
 import { Inspector } from './Inspector';

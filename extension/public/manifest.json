@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Surprisal RSVP Reader",
+  "version": "0.2.0",
+  "description": "Read any page one word at a time, paced by how predictable each word is, with the word highlighted in the page.",
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
+  "action": {
+    "default_title": "Read this page (Alt+Shift+R)",
+    "default_icon": "icon.svg"
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["activeTab", "scripting", "storage", "menus"],
+  "optional_host_permissions": ["<all_urls>"],
+  "commands": {
+    "toggle-reader": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "Open or close the reader on this page"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "surprisal-rsvp-reader@extension",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+/* The extension's options page, on top of the app's styles.css. */
+
+html,
+body,
+#root {
+  height: auto;
+}
+
+.options {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.options h1 {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.settings-page section {
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-page section.dim {
+  opacity: 0.55;
+}
+
+.settings-page h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.settings-page .panel-foot {
+  padding-top: 16px;
+}

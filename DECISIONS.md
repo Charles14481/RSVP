@@ -408,3 +408,127 @@ Each entry: what changed, and why.
 - **Not supported yet:** `.docx`, `.epub` and `.rtf` files (rich text pasted from those apps is
   converted). Each needs its own reader; .docx and .epub also need unzipping.
 
+
+## Firefox extension
+
+- **The model runs in the background page, and the background only relays.** Content scripts
+  cannot start a worker from the extension. An extension iframe placed inside the page could have
+  its storage partitioned per site, which would mean a model download for every site. The
+  background has the extension's origin, so the model and the surprisal cache are shared by every
+  site.
+  - `SurprisalService` now takes a worker factory. The content script passes
+    `BackgroundConnection`, which looks like a worker but relays messages over a `runtime.Port`.
+    The background (`Relay`) forwards them to a real scoring worker. `client.ts`, `protocol.ts`
+    and `worker.ts` work as in the app.
+  - The app's worker factory moved to `src/surprisal/service.ts`, so the content-script bundle
+    does not pull in the worker.
+- **One worker per page, then kept warm.** A worker runs one job at a time, so each connected page
+  gets its own.
+  - When a page closes, its job is cancelled and the worker is kept for 5 minutes, model loaded,
+    for the next page.
+  - A kept worker asked to load the model it already has now announces `ready` again. Before
+    this, a second page would have shown "loading" indefinitely.
+- **Keep-alive.** An MV3 event page can be suspended when idle. While a reader is open, it pings
+  the background every 15 s. If the connection drops anyway, the reader shows the model problem
+  with *Try again*, which reconnects. It never falls back silently.
+- **ONNX Runtime's WASM comes from the extension, never a CDN.** Transformers.js points ONNX
+  Runtime at jsdelivr for its WASM loader, and extension pages may only run their own scripts.
+  The extension build defines `VITE_ORT_LOCAL_WASM`, and the worker then clears `wasmPaths`. ONNX
+  Runtime falls back to the loader bundled into it and the `.wasm` file Vite emits. The app is
+  unchanged.
+- **Readability chooses the text and the live DOM decides everything else.**
+  - Readability runs on a clone of the page. Each element in the clone is tagged with
+    `data-rsvp-i`, its index among the live elements. Attributes survive Readability's retries,
+    which re-parse the page from its HTML, so after a retry node identities are gone but the tags
+    remain.
+  - The tags of the elements Readability keeps give a set of live elements. A live text node is
+    read when its parent is in that set.
+  - The walk over the live page gives:
+    - paragraphs (computed `display`, `<br>`, newlines in preformatted text);
+    - visibility (`display: none`, `content-visibility: hidden`, `visibility`, one-pixel
+      "visually hidden" text);
+    - positions.
+  - If the article has fewer than 50 words, the reader uses the visible text of `article`,
+    `main` or `body` instead. A selection is read clipped to its ranges.
+- **Words are built from page positions, not by re-normalizing the text.**
+  - Whitespace-delimited chunks are collected across text nodes, so `<b>wor</b>ld` is one word.
+    Each chunk records its start and end as a text node and an offset.
+  - `normalizeChunk` (split out of `normalizeText`) applies the same character normalization to
+    each chunk. Pieces of a chunk that normalization splits share its range.
+  - The text is the chunks joined with single spaces and paragraphs with `"\n\n"`.
+  - `segment(text)` must give back exactly these chunks, or the page is refused with an error.
+    The tests also check that `normalizeText(text) === text`.
+- **Highlighting uses the CSS Custom Highlight API.** It paints over text without changing the
+  page's DOM or layout. There are two highlights: the words on screen, and optionally the current
+  sentence. Their styles are inserted with `scripting.insertCSS`. Where the API is missing, boxes
+  from `getClientRects()` are drawn in the overlay instead.
+- **Following.** When a word leaves the band between 15% and 65% of the window height (and clear
+  of the card), the page or the nearest scrolling element scrolls to put it a third of the way
+  down. A wheel, touch, scroll key or scrollbar drag holds following for 3 s.
+  - When the card covers a word that scrolling cannot uncover (the opening lines with the card at
+    the top, or the last lines with it at the bottom), the card moves to the other edge.
+- **Only on request.** `activeTab` and `scripting` inject the content script when the toolbar
+  button, the shortcut or a menu item is used, so the extension needs no host permissions. "Read
+  from here" uses `menus.getTargetElement`, because the content script is not present until the
+  click.
+- **The overlay is plain DOM in a closed shadow root**, with the app's stage markup, so
+  `WordDisplay` drives it unchanged. `PagePlayer` (`src/extension/controller.ts`) is the app
+  Reader's scheduler wiring without React. The options page reuses `SettingsPanel` through a new
+  `page` variant, which leaves out the drawer and the rows that only the app uses.
+- **Fixed pacing loads no model** in the extension. Turning surprisal pacing back on starts
+  scoring.
+- **Positions and caches are keyed by the SHA-256 of the text**, computed in the background,
+  because `crypto.subtle` is missing in content scripts on plain-http pages. The position key is
+  `pos:page:<hash>`.
+- **Checked in Firefox 160** (headless, through WebDriver BiDi, with a test-only trigger, because
+  automation cannot press the toolbar button). On a local article page:
+  - the reader opens on the article heading, and the navigation and sidebar are left out;
+  - the box and the page highlight move together;
+  - DistilGPT-2 on WASM scores in the background (the chip shows "Scored 56%" while playing);
+  - a click while paused jumps to the clicked word;
+  - forty presses of → leave the word 253 px from the top of an 800 px window;
+  - Esc removes the highlights.
+
+### Extension, second round
+
+- **The card keeps one size.** The status line always takes its one-line height. The hint is
+  made invisible while playing, not removed. The control bar never wraps, and its changing
+  labels have fixed widths. The card used to grow and shrink as messages came and went (a
+  download line, "Scoring ahead…"), and controls could move to a second line. At the bottom of
+  the window, that moved the whole card.
+- **Stepping aside is sticky, and never for a dragged card.** A Top or Bottom card that covers
+  words which scrolling cannot uncover moves to the other edge once. It stays there until the
+  position setting itself changes. Before, any settings change, even ↑ / ↓ for speed, put it
+  back, so it could bounce. A card the reader dragged is never moved by the reader: dropping it
+  over the word being read used to set off the step-aside straight away.
+- **Dragging.** Any part of the card that is not a control is a handle, the flashing word
+  included. A press becomes a drag after 5 px. The click that ends a drag is swallowed, so a drag
+  never plays or pauses. The place is stored as fractions of the free space left of and above
+  the card (`ExtSettings.at`), so it holds when the window is resized. Choosing Top or Bottom
+  returns the card to that edge.
+- **Highlight mode replaces the sentence on/off switch.** The modes are word + sentence, word,
+  and sentence only; the old setting is migrated. When the sentence is the only mark, it uses its
+  own, stronger highlight (`rsvp-reader-sentence-only`). Following still tracks the word, so the
+  page scrolls no more often than before.
+- **Keep-open needs host access, and asks for it in the options page.** `activeTab` access ends
+  when the tab navigates. So putting the reader back after a page load needs `<all_urls>`, which
+  is declared as an optional host permission. Firefox grants it only from a click in an extension
+  page. The overlay's checkbox therefore asks the background, which opens the options page when
+  the access is missing, and the options page's switch calls `permissions.request`.
+  - The background keeps the tabs that have an open reader in `storage.session`, because the
+    event page may be suspended between loads. The reader reports opening and explicit closing.
+    A page that unloads reports nothing, so its tab stays marked.
+  - On `tabs.onUpdated` with status `complete`, the background sends `reopen`. The content script
+    ignores it if a reader is already open.
+- **Pages that change in place are re-read.** The reader checks the address once a second,
+  ignoring the `#fragment`. When it changes, the reader pauses and reads the page again after
+  0.6, 1, 1.5 and 2.5 s, until the text differs from before. This happens regardless of
+  keep-open, since the old text has left the page.
+- **Checked in Firefox 160:**
+  - sentence-only marks just the sentence and moves sentence by sentence;
+  - the card is the same size paused and playing;
+  - a drag moves the card and does not start playback;
+  - a click on the moved word plays;
+  - an in-place page change is re-read;
+  - with keep-open on, loading another URL in the tab opens the reader again, at the saved
+    position for that text.

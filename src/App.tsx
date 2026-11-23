@@ -14,7 +14,7 @@ import {
   type DocSource,
   type LibraryEntry,
 } from './store/db';
-import { surprisalService } from './surprisal/client';
+import { surprisalService } from './surprisal/service';
 import { GUIDE_TEXT, GUIDE_TITLE } from './ui/guide';
 import { ImportPreview, type ImportDraft } from './ui/ImportPreview';
 import { Library } from './ui/Library';

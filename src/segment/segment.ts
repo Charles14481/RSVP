@@ -18,10 +18,25 @@ const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[
  * what the token-to-word alignment relies on.
  */
 export function normalizeText(raw: string): string {
-  let t = raw.replace(LONE_SURROGATE, '�').normalize('NFKC');
+  return splitParagraphs(normalizeChars(raw)).join(PARAGRAPH_BREAK);
+}
+
+/** Lone surrogates, NFKC, line separators to newlines, invisible characters removed, controls to spaces. */
+function normalizeChars(raw: string): string {
+  let t = raw.replace(LONE_SURROGATE, '\uFFFD').normalize('NFKC');
   t = t.replace(/\r\n?/g, '\n').replace(/\u2029/g, '\n\n').replace(/\u2028/g, '\n');
-  t = t.replace(INVISIBLE, '').replace(CONTROL, ' ');
-  return splitParagraphs(t).join(PARAGRAPH_BREAK);
+  return t.replace(INVISIBLE, '').replace(CONTROL, ' ');
+}
+
+/**
+ * The words of one whitespace-delimited chunk of raw text, after the same
+ * character normalization normalizeText applies. Usually one word; none when
+ * the chunk was only invisible characters; several when normalization turned
+ * a character into whitespace. Joining a paragraph’s results with single
+ * spaces gives what normalizeText makes of it (apart from the hard-wrap rule).
+ */
+export function normalizeChunk(chunk: string): string[] {
+  return normalizeChars(chunk).split(/\s+/).filter(Boolean);
 }
 
 /**

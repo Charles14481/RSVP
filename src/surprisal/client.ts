@@ -29,8 +29,21 @@ export interface ScoreRequest {
  * for React (useSyncExternalStore) and routes streamed scores into the
  * current ReaderSession.
  */
+/** The part of the Worker interface the service uses, so a relay can stand in for a real worker. */
+export interface WorkerLike {
+  postMessage(msg: ToWorker): void;
+  onmessage: ((e: MessageEvent<FromWorker>) => void) | null;
+  onerror: ((e: ErrorEvent) => void) | null;
+}
+
 export class SurprisalService {
-  private worker: Worker | null = null;
+  private worker: WorkerLike | null = null;
+
+  /**
+   * `createWorker` makes the scoring worker (see service.ts); the browser
+   * extension passes a relay to the worker in its background page instead.
+   */
+  constructor(private readonly createWorker: () => WorkerLike) {}
   private listeners = new Set<() => void>();
   private nextJobId = 1;
   private current: { id: number; session: ReaderSession; request: ScoreRequest } | null = null;
@@ -122,9 +135,9 @@ export class SurprisalService {
     this.score(cur.session, { ...cur.request, ...request, known: undefined });
   }
 
-  private ensureWorker(): Worker {
+  private ensureWorker(): WorkerLike {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'surprisal' });
+      this.worker = this.createWorker();
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.onMessage(e.data);
       this.worker.onerror = (e) => {
         const modelId = this.wanted?.modelId ?? '';
@@ -192,10 +205,4 @@ export class SurprisalService {
     this.snapshot = { ...this.snapshot, ...patch };
     for (const fn of this.listeners) fn();
   }
-}
-
-let service: SurprisalService | null = null;
-
-export function surprisalService(): SurprisalService {
-  return (service ??= new SurprisalService());
 }

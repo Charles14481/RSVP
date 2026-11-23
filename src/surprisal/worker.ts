@@ -12,6 +12,14 @@ env.allowLocalModels = false;
 env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
+// Transformers.js points ONNX Runtime at a CDN for its WASM loader. Extension pages may only run
+// their own scripts, so the browser extension build clears that: ONNX Runtime then uses the loader
+// bundled into it and the .wasm file Vite emits next to the worker.
+if (import.meta.env.VITE_ORT_LOCAL_WASM) {
+  const wasm = (env.backends.onnx as { wasm?: { wasmPaths?: unknown } }).wasm;
+  if (wasm) wasm.wasmPaths = undefined;
+}
+
 type Model = Awaited<ReturnType<typeof AutoModelForCausalLM.from_pretrained>>;
 
 interface Loaded {
@@ -153,8 +161,29 @@ async function loadModel(modelId: string, preference: BackendPreference): Promis
   throw new Error(failures.join('\n'));
 }
 
+function readyMessage(modelId: string, l: Loaded): FromWorker {
+  return {
+    type: 'ready',
+    modelId,
+    backend: l.backend,
+    dtype: l.dtype,
+    window: resolveWindow(modelSpec(modelId), l.backend),
+    ...('note' in l && typeof l.note === 'string' ? { note: l.note } : {}),
+  };
+}
+
 function ensureModel(modelId: string, backend: BackendPreference): Promise<Loaded> {
-  if (loading && loading.modelId === modelId && loading.backend === backend) return loading.promise;
+  if (loading && loading.modelId === modelId && loading.backend === backend) {
+    // Asked again (a new client of a kept worker, as in the browser extension): say where it stands.
+    const current = loading.promise;
+    current.then(
+      (l) => {
+        if (loading?.promise === current) post(readyMessage(modelId, l));
+      },
+      () => {},
+    );
+    return current;
+  }
   const previous = loading;
   const promise = (async () => {
     if (previous) {
@@ -167,15 +196,7 @@ function ensureModel(modelId: string, backend: BackendPreference): Promise<Loade
   promise.then(
     (l) => {
       if (loading?.promise !== promise) return;
-      const spec = modelSpec(modelId);
-      post({
-        type: 'ready',
-        modelId,
-        backend: l.backend,
-        dtype: l.dtype,
-        window: resolveWindow(spec, l.backend),
-        ...('note' in l && typeof l.note === 'string' ? { note: l.note } : {}),
-      });
+      post(readyMessage(modelId, l));
     },
     (e) => {
       if (loading?.promise !== promise) return;

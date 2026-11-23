@@ -13,6 +13,8 @@ interface Props {
   effectiveWpm?: number | null;
   model: ModelStatus;
   onClearCache: () => Promise<number>;
+  /** 'page': a plain page (the browser extension's options) without the drawer or the app-only rows. */
+  variant?: 'panel' | 'page';
 }
 
 function Slider(props: {
@@ -79,7 +81,8 @@ function Choice<T extends string | number>(props: {
 const fixed = (digits: number) => (v: number) => v.toFixed(digits);
 const times = (v: number) => `${v.toFixed(2)} × T`;
 
-export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, model, onClearCache }: Props) {
+export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, model, onClearCache, variant = 'panel' }: Props) {
+  const appOnly = variant === 'panel';
   const [cacheNote, setCacheNote] = useState('');
   const t = settings.timing;
   const T = 60000 / t.targetWpm;
@@ -87,8 +90,8 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
   const set = (patch: Partial<Settings>) => onSettings((s) => ({ ...s, ...patch }));
   const surprisal = settings.pacing === 'surprisal';
 
-  return (
-    <Panel title="Settings" onClose={onClose}>
+  const body = (
+    <>
       <section>
         <h3>Pace</h3>
         <Slider
@@ -266,20 +269,24 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
           ]}
           onChange={(v) => set({ theme: v })}
         />
-        <label className="check">
-          <input type="checkbox" checked={settings.textWhilePlaying} onChange={(e) => set({ textWhilePlaying: e.target.checked })} />
-          <span>
-            Show the text while playing
-            <span className="field-hint block">The text stays below the word, dimmed, with the current word marked.</span>
-          </span>
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={settings.inspectorFullText} onChange={(e) => set({ inspectorFullText: e.target.checked })} />
-          <span>
-            Inspector shows the whole text
-            <span className="field-hint block">Scroll through the document in the inspector. Off shows two paragraphs either side.</span>
-          </span>
-        </label>
+        {appOnly && (
+          <>
+            <label className="check">
+              <input type="checkbox" checked={settings.textWhilePlaying} onChange={(e) => set({ textWhilePlaying: e.target.checked })} />
+              <span>
+                Show the text while playing
+                <span className="field-hint block">The text stays below the word, dimmed, with the current word marked.</span>
+              </span>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={settings.inspectorFullText} onChange={(e) => set({ inspectorFullText: e.target.checked })} />
+              <span>
+                Inspector shows the whole text
+                <span className="field-hint block">Scroll through the document in the inspector. Off shows two paragraphs either side.</span>
+              </span>
+            </label>
+          </>
+        )}
       </section>
 
       <div className="row panel-foot">
@@ -293,6 +300,13 @@ export function SettingsPanel({ settings, onSettings, onClose, effectiveWpm, mod
         </button>
         <span className="field-hint">Keeps the model and backend.</span>
       </div>
+    </>
+  );
+
+  if (variant === 'page') return <div className="settings-page">{body}</div>;
+  return (
+    <Panel title="Settings" onClose={onClose}>
+      {body}
     </Panel>
   );
 }
